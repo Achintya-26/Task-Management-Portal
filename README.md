@@ -1,59 +1,119 @@
-# TaskManagement
+# Task Management Application
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.0.3.
+A comprehensive task management system built with Angular and Express.js, featuring real-time notifications, team collaboration, and role-based access control.
 
-## Development server
+## Features
 
-To start a local development server, run:
+### Core Functionality
+- **User Roles**: Admin and regular users with different access levels
+- **Domain Management**: Organize teams by business domains
+- **Team Management**: Create teams and manage team members
+- **Activity/Task Management**: Create, assign, and track activities
+- **Real-time Notifications**: Socket.io-powered live updates
+- **File Attachments**: Support for document attachments on activities
+- **Status Tracking**: Track activity progress with different status levels
+- **Remarks System**: Add comments and updates to activities
 
-```bash
-ng serve
-```
+### User Features
+- **User Registration**: Register with Employee ID, Name, and Password
+- **Team Visibility**: View teams you're part of
+- **Activity Updates**: Change status and add remarks to assigned activities
+- **Dashboard**: Overview of your teams and activities
+- **Real-time Updates**: Instant notifications for changes
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+### Admin Features
+- **Domain Creation**: Create and manage business domains
+- **Team Creation**: Create teams and assign domains
+- **Member Management**: Add/remove team members
+- **Activity Creation**: Create activities and assign team members
+- **System Overview**: Complete visibility of all teams and activities
 
-## Code scaffolding
+## Technology Stack
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+### Frontend (Angular)
+- Angular 20.x with standalone components
+- Angular Material for UI components
+- Tailwind CSS for styling
+- Socket.io-client for real-time updates
+- Reactive Forms for form handling
+- HTTP interceptors for authentication
 
-```bash
-ng generate component component-name
-```
+### Backend (Express.js)
+- Express.js REST API
+- Socket.io for real-time communication
+- JWT for authentication
+- Multer for file uploads
+- bcryptjs for password hashing
+- In-memory data storage (can be easily replaced with a database)
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## Setup Instructions
 
-```bash
-ng generate --help
-```
+### Prerequisites
+- Node.js (v18 or higher)
+- npm (v8 or higher)
 
-## Building
+### Backend Setup
 
-To build the project run:
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
 
-```bash
-ng build
-```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+3. Start the backend server:
+   ```bash
+   npm run dev
+   ```
+   
+   The backend will run on `http://localhost:3000`
 
-## Running unit tests
+### Frontend Setup
 
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
+1. Navigate to the root directory:
+   ```bash
+   cd ..
+   ```
 
-```bash
-ng test
-```
+2. Install frontend dependencies (if not already installed):
+   ```bash
+   npm install
+   ```
 
-## Running end-to-end tests
+3. Start the Angular development server:
+   ```bash
+   npm start
+   ```
+   
+   The frontend will run on `http://localhost:4200`
 
-For end-to-end (e2e) testing, run:
+## Default Credentials
 
-```bash
-ng e2e
-```
+The system comes with a default admin user:
+- **Employee ID**: ADMIN001
+- **Password**: password
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+## Key Features Implementation
 
-## Additional Resources
+### Real-time Updates
+- Socket.io connection established on login
+- Users automatically join team rooms
+- Real-time notifications for team and activity changes
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+### Security
+- JWT-based authentication
+- Role-based access control
+- Protected routes with guards
+- API endpoint authorization
+
+### Responsive Design
+- Mobile-first approach with Tailwind CSS
+- Angular Material components
+- Responsive grid layouts
+
+## License
+
+This project is licensed under the MIT License.
