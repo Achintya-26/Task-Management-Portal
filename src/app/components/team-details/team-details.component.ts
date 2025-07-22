@@ -49,7 +49,7 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
             <p class="team-description">{{ team.description || 'No description available' }}</p>
             <div class="team-meta">
               <mat-chip-listbox>
-                <mat-chip>{{ team.members.length }} Members</mat-chip>
+                <mat-chip>{{ team.members?.length || 0 }} Members</mat-chip>
                 <mat-chip>{{ activities.length }} Activities</mat-chip>
                 <mat-chip [class]="'progress-' + getProgressLevel()">
                   {{ getTeamProgress() }}% Complete
@@ -789,7 +789,7 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
     return labels[status] || status;
   }
 
-  getAssignedMembersText(assignedUsers: string[] | string): string {
+  getAssignedMembersText(assignedUsers: string[] | string | undefined): string {
     console.log('getAssignedMembersText - assignedUsers:', assignedUsers);
     console.log('getAssignedMembersText - team members:', this.team?.members);
     
@@ -811,7 +811,7 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
     console.log("-------|||||-------",this.team!.members);
     const memberNames = memberIds
       .map(id => {
-        const member = this.team!.members.find(m => m.id === id);
+        const member = this.team!.members?.find(m => m.id === id);
         console.log(`Looking for ID ${id}, found member:`, member);
         return member?.name;
       })

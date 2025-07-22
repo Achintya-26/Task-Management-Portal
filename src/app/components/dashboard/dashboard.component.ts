@@ -105,7 +105,7 @@ import { forkJoin } from 'rxjs';
             <mat-card-header>
               <mat-icon mat-card-avatar>group</mat-icon>
               <mat-card-title>{{ team.name }}</mat-card-title>
-              <mat-card-subtitle>{{ team.members.length }} members</mat-card-subtitle>
+              <mat-card-subtitle>{{ team.members?.length || 0 }} members</mat-card-subtitle>
             </mat-card-header>
             <mat-card-content>
               <p class="team-description">{{ team.description || 'No description available' }}</p>
@@ -485,7 +485,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!currentUserId) return;
 
     this.recentActivities = this.activities
-      .filter(activity => activity.assignedMembers.includes(currentUserId))
+      .filter(activity => activity.assignedMembers?.includes(currentUserId) || false)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 

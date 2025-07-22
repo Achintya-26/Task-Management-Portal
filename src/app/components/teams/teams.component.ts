@@ -58,7 +58,7 @@ import { forkJoin } from 'rxjs';
               <mat-icon>group</mat-icon>
             </div>
             <mat-card-title>{{ team.name }}</mat-card-title>
-            <mat-card-subtitle>{{ team.members.length }} member{{ team.members.length !== 1 ? 's' : '' }}</mat-card-subtitle>
+            <mat-card-subtitle>{{ team.members?.length || 0 }} member{{ (team.members?.length || 0) !== 1 ? 's' : '' }}</mat-card-subtitle>
           </mat-card-header>
 
           <mat-card-content>
@@ -96,16 +96,16 @@ import { forkJoin } from 'rxjs';
               <div class="members-list">
                 <mat-chip-listbox>
                   <mat-chip 
-                    *ngFor="let member of team.members.slice(0, 3)"
+                    *ngFor="let member of team.members?.slice(0, 3) || []"
                     class="member-chip"
                   >
                     {{ member.name }}
                   </mat-chip>
                   <mat-chip 
-                    *ngIf="team.members.length > 3"
+                    *ngIf="(team.members?.length || 0) > 3"
                     class="more-chip"
                   >
-                    +{{ team.members.length - 3 }} more
+                    +{{ (team.members?.length || 0) - 3 }} more
                   </mat-chip>
                 </mat-chip-listbox>
               </div>
@@ -436,7 +436,7 @@ export class TeamsComponent implements OnInit, OnDestroy {
     this.filteredTeams = this.teams.filter(team => 
       team.name.toLowerCase().includes(query) ||
       team.description?.toLowerCase().includes(query) ||
-      team.members.some(member => member.name.toLowerCase().includes(query))
+      team.members?.some(member => member.name.toLowerCase().includes(query)) || false
     );
   }
 

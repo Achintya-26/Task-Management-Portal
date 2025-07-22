@@ -28,7 +28,7 @@ export interface Team {
   name: string;
   description: string;
   domainId: string;
-  members: TeamMember[];
+  members?: TeamMember[];
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -55,7 +55,7 @@ export interface Activity {
   userid:string;
   description: string;
   teamId: string;
-  assignedMembers: string[];
+  assignedMembers?: string[];
   status: 'pending' | 'in-progress' | 'completed' | 'on-hold';
   createdBy: string;
   createdAt: string;

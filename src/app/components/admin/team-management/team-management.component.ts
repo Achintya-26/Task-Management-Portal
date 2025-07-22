@@ -128,7 +128,7 @@ import { Subscription } from 'rxjs';
             <mat-card-header>
               <mat-icon mat-card-avatar>group</mat-icon>
               <mat-card-title>{{ team.name }}</mat-card-title>
-              <mat-card-subtitle>{{ team.members.length }} members</mat-card-subtitle>
+              <mat-card-subtitle>{{ team.members?.length || 0 }} members</mat-card-subtitle>
             </mat-card-header>
 
             <mat-card-content>
