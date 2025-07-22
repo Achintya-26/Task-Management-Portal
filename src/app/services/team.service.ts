@@ -15,7 +15,7 @@ export class TeamService {
     return this.http.get<Team[]>(this.apiUrl);
   }
 
-  createTeam(teamData: { name: string; description: string; domainId: string }): Observable<any> {
+  createTeam(teamData: { name: string; description: string; domainId: string; initialMembers?: string[] }): Observable<any> {
     return this.http.post(this.apiUrl, teamData);
   }
 
@@ -23,7 +23,7 @@ export class TeamService {
     return this.http.get<Team>(`${this.apiUrl}/${teamId}`);
   }
 
-  addMembersToTeam(teamId: string, userIds: string[]): Observable<any> {
+  addMembers(teamId: string, userIds: string[]): Observable<any> {
     return this.http.post(`${this.apiUrl}/${teamId}/members`, { userIds });
   }
 

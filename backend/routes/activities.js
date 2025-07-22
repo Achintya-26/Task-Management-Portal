@@ -1,8 +1,10 @@
 const express = require('express');
-const { v4: uuidv4 } = require('uuid');
 const multer = require('multer');
 const path = require('path');
-const { activities, teams, users, notifications } = require('../data/database');
+const Activity = require('../models/Activity');
+const Team = require('../models/Team');
+const User = require('../models/User');
+const Notification = require('../models/Notification');
 const { authenticateToken, authorizeAdmin } = require('../middleware/auth');
 
 const router = express.Router();
@@ -33,195 +35,197 @@ const upload = multer({
 });
 
 // Get activities for a team
-router.get('/team/:teamId', authenticateToken, (req, res) => {
+router.get('/team/:teamId', authenticateToken, async (req, res) => {
   try {
     const { teamId } = req.params;
     
-    // Check if user has access to this team
-    const team = teams.find(t => t.id === teamId);
+    // Check if team exists and user has access to it
+    const team = await Team.findById(teamId);
     if (!team) {
       return res.status(404).json({ message: 'Team not found' });
     }
 
-    if (req.user.role !== 'admin' && !team.members.some(m => m.userId === req.user.id)) {
-      return res.status(403).json({ message: 'Access denied to this team' });
+    // Check if user has access to this team
+    if (req.user.role !== 'admin') {
+      const teamMembers = await Team.getMembers(teamId);
+      const hasAccess = teamMembers.some(member => member.id === req.user.userId);
+      if (!hasAccess) {
+        return res.status(403).json({ message: 'Access denied to this team' });
+      }
     }
 
-    const teamActivities = activities.filter(activity => activity.teamId === teamId);
+    // Get activities for the team
+    const teamActivities = await Activity.findByTeamId(teamId);
     res.json(teamActivities);
   } catch (error) {
+    console.error('Get team activities error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
 // Create new activity (admin only)
-router.post('/', authenticateToken, authorizeAdmin, upload.array('attachments', 5), (req, res) => {
+router.post('/', authenticateToken, authorizeAdmin, upload.array('attachments', 5), async (req, res) => {
   try {
-    const { title, description, teamId, assignedMembers, targetDate } = req.body;
+    const { title, description, teamId, assignedUsers, targetDate, priority = 'medium' } = req.body;
+
+    console.log('Create activity request body:', req.body);
+    console.log('Assigned users:', assignedUsers);
 
     if (!title || !teamId) {
       return res.status(400).json({ message: 'Activity title and team are required' });
     }
 
     // Verify team exists
-    const team = teams.find(t => t.id === teamId);
+    const team = await Team.findById(teamId);
     if (!team) {
       return res.status(404).json({ message: 'Team not found' });
     }
 
-    // Process assigned members
-    let assignedMemberIds = [];
-    if (assignedMembers) {
-      assignedMemberIds = Array.isArray(assignedMembers) ? assignedMembers : [assignedMembers];
-    }
-
-    // Process file attachments
-    const attachments = req.files ? req.files.map(file => ({
-      id: uuidv4(),
-      filename: file.filename,
-      originalName: file.originalname,
-      path: file.path,
-      size: file.size,
-      uploadedAt: new Date().toISOString()
-    })) : [];
-
-    const newActivity = {
-      id: uuidv4(),
+    // Create activity
+    const newActivity = await Activity.create({
       title,
       description: description || '',
       teamId,
-      assignedMembers: assignedMemberIds,
-      status: 'pending',
-      createdBy: req.user.id,
-      createdAt: new Date().toISOString(),
+      createdBy: req.user.userId,
       targetDate: targetDate ? new Date(targetDate).toISOString() : null,
-      attachments,
-      remarks: [],
-      updatedAt: new Date().toISOString()
-    };
-
-    activities.push(newActivity);
-
-    // Create notifications for assigned members
-    assignedMemberIds.forEach(userId => {
-      const user = users.find(u => u.id === userId);
-      if (user) {
-        const notification = {
-          id: uuidv4(),
-          type: 'activity_assigned',
-          title: 'New Activity Assigned',
-          message: `You have been assigned to activity "${title}"`,
-          userId: user.id,
-          teamId: teamId,
-          activityId: newActivity.id,
-          read: false,
-          createdAt: new Date().toISOString()
-        };
-        notifications.push(notification);
-      }
+      priority
     });
 
+    // Assign users to activity
+    if (assignedUsers && Array.isArray(assignedUsers)) {
+      console.log('Processing assigned users:', assignedUsers);
+      for (const userId of assignedUsers) {
+        console.log('Processing userId:', userId, 'Type:', typeof userId);
+        
+        // Validate userId before processing
+        if (!userId || userId.trim() === '') {
+          console.warn('Skipping null/empty userId in assignedUsers array');
+          continue;
+        }
+
+        await Activity.assignUser(newActivity.id, userId);
+        
+        // Create notification for assigned user
+        console.log('Creating notification for userId:', userId);
+        await Notification.create({
+          userId: userId,
+          title: 'New Activity Assigned',
+          message: `You have been assigned to activity "${title}"`,
+          type: 'info',
+          relatedActivityId: newActivity.id,
+          relatedTeamId: teamId
+        });
+      }
+    }
+
+    // Handle file attachments
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        await Activity.addAttachment({
+          activityId: newActivity.id,
+          filename: file.filename,
+          originalName: file.originalname,
+          filePath: file.path,
+          fileSize: file.size,
+          mimeType: file.mimetype,
+          uploadedBy: req.user.userId
+        });
+      }
+    }
+
     // Emit socket event
-    req.io.to(`team-${teamId}`).emit('activity_created', newActivity);
+    if (req.io) {
+      req.io.to(`team-${teamId}`).emit('activity_created', newActivity);
+    }
 
     res.status(201).json({
       message: 'Activity created successfully',
       activity: newActivity
     });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('Create activity error:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
 
 // Update activity status
-router.patch('/:activityId/status', authenticateToken, (req, res) => {
+router.patch('/:activityId/status', authenticateToken, async (req, res) => {
   try {
     const { activityId } = req.params;
     const { status, remarks } = req.body;
 
-    const activity = activities.find(a => a.id === activityId);
+    // Find the activity
+    const activity = await Activity.findById(activityId);
     if (!activity) {
       return res.status(404).json({ message: 'Activity not found' });
     }
 
-    // Check if user is assigned to this activity or is admin
-    if (req.user.role !== 'admin' && !activity.assignedMembers.includes(req.user.id)) {
-      return res.status(403).json({ message: 'Access denied to this activity' });
+    // Check if user has access to update this activity
+    if (req.user.role !== 'admin') {
+      // First check if user is a team member
+      const teamMembers = await Team.getMembers(activity.team_id);
+      const isTeamMember = teamMembers.some(member => member.id === req.user.userId);
+      if (!isTeamMember) {
+        return res.status(403).json({ message: 'Access denied to this team' });
+      }
+      
+      // Then check if user is assigned to this specific activity
+      const activityAssignments = await Activity.getAssignedUsers(activityId);
+      const isAssignedToActivity = activityAssignments.some(assignment => assignment.id === req.user.userId);
+      if (!isAssignedToActivity) {
+        return res.status(403).json({ message: 'You can only update activities assigned to you' });
+      }
     }
 
     // Validate status
-    const validStatuses = ['pending', 'in_progress', 'completed', 'on_hold'];
+    const validStatuses = ['pending', 'in-progress', 'completed', 'on-hold'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ message: 'Invalid status' });
     }
 
-    activity.status = status;
-    activity.updatedAt = new Date().toISOString();
+    // Update activity status
+    await Activity.update(activityId, { status });
 
     // Add remark if provided
     if (remarks) {
-      activity.remarks.push({
-        id: uuidv4(),
-        text: remarks,
-        userId: req.user.id,
-        userName: req.user.empId,
-        createdAt: new Date().toISOString()
-      });
+      await Activity.addRemark(activityId, req.user.userId, remarks);
     }
 
-    // Create notification for team members and admin
-    const team = teams.find(t => t.id === activity.teamId);
-    if (team) {
-      // Notify admin
-      const admin = users.find(u => u.role === 'admin');
-      if (admin) {
-        const notification = {
-          id: uuidv4(),
-          type: 'activity_status_updated',
+    // Create notifications for team members
+    const teamMembers = await Team.getMembers(activity.team_id);
+    for (const member of teamMembers) {
+      if (member.id !== req.user.userId && member.id) {
+        await Notification.create({
+          userId: member.id,
           title: 'Activity Status Updated',
           message: `Activity "${activity.title}" status changed to ${status}`,
-          userId: admin.id,
-          teamId: activity.teamId,
-          activityId: activity.id,
-          read: false,
-          createdAt: new Date().toISOString()
-        };
-        notifications.push(notification);
+          type: 'info',
+          relatedActivityId: activityId,
+          relatedTeamId: activity.team_id
+        });
       }
-
-      // Notify other assigned members
-      activity.assignedMembers.forEach(userId => {
-        if (userId !== req.user.id) {
-          const notification = {
-            id: uuidv4(),
-            type: 'activity_status_updated',
-            title: 'Activity Status Updated',
-            message: `Activity "${activity.title}" status changed to ${status}`,
-            userId: userId,
-            teamId: activity.teamId,
-            activityId: activity.id,
-            read: false,
-            createdAt: new Date().toISOString()
-          };
-          notifications.push(notification);
-        }
-      });
     }
 
     // Emit socket event
-    req.io.to(`team-${activity.teamId}`).emit('activity_updated', activity);
+    if (req.io) {
+      req.io.to(`team-${activity.team_id}`).emit('activity_updated', activityId);
+    }
+
+    // Get updated activity
+    const updatedActivity = await Activity.findById(activityId);
 
     res.json({
       message: 'Activity status updated successfully',
-      activity
+      activity: updatedActivity
     });
   } catch (error) {
+    console.error('Update activity status error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
 // Add remark to activity
-router.post('/:activityId/remarks', authenticateToken, (req, res) => {
+router.post('/:activityId/remarks', authenticateToken, async (req, res) => {
   try {
     const { activityId } = req.params;
     const { text } = req.body;
@@ -230,65 +234,69 @@ router.post('/:activityId/remarks', authenticateToken, (req, res) => {
       return res.status(400).json({ message: 'Remark text is required' });
     }
 
-    const activity = activities.find(a => a.id === activityId);
+    // Find the activity
+    const activity = await Activity.findById(activityId);
     if (!activity) {
       return res.status(404).json({ message: 'Activity not found' });
     }
 
     // Check if user has access to this activity
-    const team = teams.find(t => t.id === activity.teamId);
-    if (!team) {
-      return res.status(404).json({ message: 'Team not found' });
+    if (req.user.role !== 'admin') {
+      const teamMembers = await Team.getMembers(activity.team_id);
+      const hasAccess = teamMembers.some(member => member.id === req.user.userId);
+      if (!hasAccess) {
+        return res.status(403).json({ message: 'Access denied to this activity' });
+      }
     }
 
-    if (req.user.role !== 'admin' && !team.members.some(m => m.userId === req.user.id)) {
-      return res.status(403).json({ message: 'Access denied to this activity' });
-    }
-
-    const newRemark = {
-      id: uuidv4(),
-      text,
-      userId: req.user.id,
-      userName: req.user.empId,
-      createdAt: new Date().toISOString()
-    };
-
-    activity.remarks.push(newRemark);
-    activity.updatedAt = new Date().toISOString();
+    // Add remark
+    const newRemark = await Activity.addRemark(activityId, req.user.userId, text);
 
     // Emit socket event
-    req.io.to(`team-${activity.teamId}`).emit('activity_updated', activity);
+    if (req.io) {
+      req.io.to(`team-${activity.team_id}`).emit('activity_updated', activityId);
+    }
 
     res.json({
       message: 'Remark added successfully',
-      remark: newRemark,
-      activity
+      remark: newRemark
     });
   } catch (error) {
+    console.error('Add remark error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
 // Get activity details
-router.get('/:activityId', authenticateToken, (req, res) => {
+router.get('/:activityId', authenticateToken, async (req, res) => {
   try {
-    const activity = activities.find(a => a.id === req.params.activityId);
+    const activity = await Activity.findById(req.params.activityId);
     if (!activity) {
       return res.status(404).json({ message: 'Activity not found' });
     }
 
     // Check if user has access to this activity
-    const team = teams.find(t => t.id === activity.teamId);
-    if (!team) {
-      return res.status(404).json({ message: 'Team not found' });
+    if (req.user.role !== 'admin') {
+      const teamMembers = await Team.getMembers(activity.team_id);
+      const hasAccess = teamMembers.some(member => member.id === req.user.userId);
+      if (!hasAccess) {
+        return res.status(403).json({ message: 'Access denied to this activity' });
+      }
     }
 
-    if (req.user.role !== 'admin' && !team.members.some(m => m.userId === req.user.id)) {
-      return res.status(403).json({ message: 'Access denied to this activity' });
-    }
+    // Get activity remarks
+    const remarks = await Activity.getRemarks(req.params.activityId);
+    
+    // Get activity attachments
+    const attachments = await Activity.getAttachments(req.params.activityId);
 
-    res.json(activity);
+    res.json({
+      ...activity,
+      remarks,
+      attachments
+    });
   } catch (error) {
+    console.error('Get activity details error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });

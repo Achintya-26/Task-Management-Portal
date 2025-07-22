@@ -54,7 +54,7 @@ export interface Activity {
   description: string;
   teamId: string;
   assignedMembers: string[];
-  status: 'pending' | 'in_progress' | 'completed' | 'on_hold';
+  status: 'pending' | 'in-progress' | 'completed' | 'on-hold';
   createdBy: string;
   createdAt: string;
   targetDate: string | null;

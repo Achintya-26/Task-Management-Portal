@@ -30,7 +30,23 @@ import { Subscription } from 'rxjs';
     MatSelectModule
   ],
   template: `
-    <div class="activity-details-container" *ngIf="activity">
+    <!-- Loading State -->
+    <div class="loading-state" *ngIf="!activity && !error">
+      <mat-icon>hourglass_empty</mat-icon>
+      <p>Loading activity details...</p>
+    </div>
+
+    <!-- Error State -->
+    <div class="error-state" *ngIf="error">
+      <mat-icon>error</mat-icon>
+      <p>{{ error }}</p>
+      <button mat-raised-button color="primary" (click)="goBack()">
+        Go Back
+      </button>
+    </div>
+
+    <!-- Activity Details -->
+    <div class="activity-details-container" *ngIf="activity && !error">
       <!-- Header -->
       <div class="activity-header">
         <button mat-icon-button (click)="goBack()" class="back-button">
@@ -71,14 +87,14 @@ import { Subscription } from 'rxjs';
                 <span class="label">Assigned Members:</span>
                 <div class="assigned-members">
                   <mat-chip-listbox>
-                    <mat-chip *ngFor="let memberId of activity.assignedMembers">
+                    <mat-chip *ngFor="let memberId of activity.assignedMembers || []">
                       {{ getMemberName(memberId) }}
                     </mat-chip>
                   </mat-chip-listbox>
                 </div>
               </div>
 
-              <div class="detail-row" *ngIf="activity.attachments.length > 0">
+              <div class="detail-row" *ngIf="activity.attachments && activity.attachments.length > 0">
                 <span class="label">Attachments:</span>
                 <div class="attachments-list">
                   <div *ngFor="let attachment of activity.attachments" class="attachment-item">
@@ -122,7 +138,7 @@ import { Subscription } from 'rxjs';
               </form>
 
               <!-- Remarks List -->
-              <div class="remarks-list" *ngIf="activity.remarks.length > 0">
+              <div class="remarks-list" *ngIf="activity.remarks && activity.remarks.length > 0">
                 <div *ngFor="let remark of activity.remarks" class="remark-item">
                   <div class="remark-header">
                     <span class="remark-author">{{ remark.userName }}</span>
@@ -132,7 +148,7 @@ import { Subscription } from 'rxjs';
                 </div>
               </div>
 
-              <div *ngIf="activity.remarks.length === 0" class="no-remarks">
+              <div *ngIf="!activity.remarks || activity.remarks.length === 0" class="no-remarks">
                 <mat-icon>comment</mat-icon>
                 <p>No remarks yet. Be the first to add an update!</p>
               </div>
@@ -153,9 +169,9 @@ import { Subscription } from 'rxjs';
                   <mat-label>Status</mat-label>
                   <mat-select formControlName="status">
                     <mat-option value="pending">Pending</mat-option>
-                    <mat-option value="in_progress">In Progress</mat-option>
+                    <mat-option value="in-progress">In Progress</mat-option>
                     <mat-option value="completed">Completed</mat-option>
-                    <mat-option value="on_hold">On Hold</mat-option>
+                    <mat-option value="on-hold">On Hold</mat-option>
                   </mat-select>
                 </mat-form-field>
 
@@ -224,11 +240,6 @@ import { Subscription } from 'rxjs';
         </div>
       </div>
     </div>
-
-    <div class="loading-state" *ngIf="!activity">
-      <mat-icon>assignment</mat-icon>
-      <p>Loading activity details...</p>
-    </div>
   `,
   styles: [`
     .activity-details-container {
@@ -293,9 +304,9 @@ import { Subscription } from 'rxjs';
     }
 
     .status-pending { background-color: #ff9800; color: white; }
-    .status-in_progress { background-color: #2196f3; color: white; }
+    .status-in-progress { background-color: #2196f3; color: white; }
     .status-completed { background-color: #4caf50; color: white; }
-    .status-on_hold { background-color: #f44336; color: white; }
+    .status-on-hold { background-color: #f44336; color: white; }
 
     .content-grid {
       display: grid;
@@ -455,6 +466,28 @@ import { Subscription } from 'rxjs';
       margin-bottom: 16px;
     }
 
+    .error-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 300px;
+      color: #f44336;
+      text-align: center;
+    }
+
+    .error-state mat-icon {
+      font-size: 48px;
+      height: 48px;
+      width: 48px;
+      margin-bottom: 16px;
+      color: #f44336;
+    }
+
+    .error-state p {
+      margin-bottom: 24px;
+    }
+
     @media (max-width: 768px) {
       .activity-details-container {
         padding: 16px;
@@ -490,6 +523,7 @@ import { Subscription } from 'rxjs';
 export class ActivityDetailsComponent implements OnInit, OnDestroy {
   activity: Activity | null = null;
   currentUser: User | null = null;
+  error: string | null = null;
   remarkForm: FormGroup;
   statusForm: FormGroup;
   isAddingRemark = false;
@@ -532,22 +566,30 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
   }
 
   loadActivityDetails(activityId: string) {
+    console.log('Loading activity details for ID:', activityId);
+    console.log('Current user:', this.currentUser);
+    this.error = null; // Reset error state
+    
     this.subscriptions.push(
       this.activityService.getActivityById(activityId).subscribe({
         next: (activity) => {
+          console.log('Activity loaded successfully:', activity);
           this.activity = activity;
           this.statusForm.patchValue({ status: activity.status });
         },
         error: (error) => {
-          this.snackBar.open('Failed to load activity details', 'Close', { duration: 3000 });
-          this.router.navigate(['/dashboard']);
+          console.error('Failed to load activity details:', error);
+          this.error = error.status === 403 ? 
+            'You do not have permission to view this activity' : 
+            'Failed to load activity details';
+          this.snackBar.open(this.error, 'Close', { duration: 3000 });
         }
       })
     );
   }
 
   canUpdateActivity(): boolean {
-    if (!this.activity || !this.currentUser) return false;
+    if (!this.activity || !this.currentUser || !this.activity.assignedMembers) return false;
     return this.authService.isAdmin() || 
            this.activity.assignedMembers.includes(this.currentUser.id);
   }
@@ -599,19 +641,21 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
   getStatusLabel(status: string): string {
     const labels: { [key: string]: string } = {
       'pending': 'Pending',
-      'in_progress': 'In Progress',
+      'in-progress': 'In Progress',
       'completed': 'Completed',
-      'on_hold': 'On Hold'
+      'on-hold': 'On Hold'
     };
     return labels[status] || status;
   }
 
   getMemberName(memberId: string): string {
+    if (!memberId) return 'Unknown Member';
     // This would typically come from a service or be part of the activity data
     return `Member ${memberId.substring(0, 8)}`;
   }
 
   getCreatorName(): string {
+    if (!this.activity) return 'Unknown';
     // This would typically come from a service or be part of the activity data
     return 'Admin User';
   }

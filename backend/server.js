@@ -6,6 +6,10 @@ const socketIo = require('socket.io');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+require('dotenv').config();
+
+// Import database configuration
+const { testConnection } = require('./config/database');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -74,10 +78,35 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Task Management API is running' });
 });
 
-const PORT = process.env.PORT || 3000;
-
-server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'OK', message: 'Task Management API is running' });
 });
+
+const PORT = process.env.PORT || 3001;
+
+// Test database connection before starting server
+const startServer = async () => {
+  try {
+    console.log('Testing database connection...');
+    const dbConnected = await testConnection();
+    
+    if (!dbConnected) {
+      console.error('Failed to connect to database. Please check your database configuration.');
+      console.error('Make sure PostgreSQL is running and the database exists.');
+      process.exit(1);
+    }
+    
+    server.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+      console.log('Database connection successful');
+    });
+  } catch (error) {
+    console.error('Error starting server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
 
 module.exports = app;

@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { TeamService } from '../../../services/team.service';
 import { DomainService } from '../../../services/domain.service';
@@ -25,7 +26,8 @@ import { Subscription } from 'rxjs';
     MatIconModule,
     MatFormFieldModule,
     MatInputModule,
-    MatSelectModule
+    MatSelectModule,
+    MatChipsModule
   ],
   template: `
     <div class="team-management">
@@ -78,6 +80,30 @@ import { Subscription } from 'rxjs';
                 Please select a domain
               </mat-error>
             </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Initial Team Members</mat-label>
+              <mat-select multiple formControlName="initialMembers">
+                <mat-option *ngFor="let user of availableUsers" [value]="user.id">
+                  {{ user.name }} ({{ user.empId }})
+                </mat-option>
+              </mat-select>
+              <mat-hint>Select users to add as initial team members (optional)</mat-hint>
+            </mat-form-field>
+
+            <!-- Show selected members -->
+            <div class="selected-members" *ngIf="selectedMembersList.length > 0">
+              <h4>Selected Members:</h4>
+              <mat-chip-listbox>
+                <mat-chip 
+                  *ngFor="let member of selectedMembersList"
+                  (removed)="removeSelectedMember(member.id)"
+                >
+                  {{ member.name }} ({{ member.empId }})
+                  <mat-icon matChipRemove>cancel</mat-icon>
+                </mat-chip>
+              </mat-chip-listbox>
+            </div>
           </form>
         </mat-card-content>
 
@@ -176,6 +202,21 @@ import { Subscription } from 'rxjs';
       margin-bottom: 16px;
     }
 
+    .selected-members {
+      margin-top: 16px;
+    }
+
+    .selected-members h4 {
+      margin-bottom: 8px;
+      color: #666;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    mat-chip-listbox {
+      margin: 8px 0;
+    }
+
     .teams-section h2 {
       font-size: 24px;
       font-weight: 400;
@@ -261,6 +302,8 @@ export class TeamManagementComponent implements OnInit, OnDestroy {
   teams: Team[] = [];
   domains: Domain[] = [];
   users: User[] = [];
+  availableUsers: User[] = [];
+  selectedMembersList: User[] = [];
   teamForm: FormGroup;
   showForm = false;
   isLoading = false;
@@ -276,12 +319,14 @@ export class TeamManagementComponent implements OnInit, OnDestroy {
     this.teamForm = this.fb.group({
       name: ['', [Validators.required]],
       description: [''],
-      domainId: ['', [Validators.required]]
+      domainId: ['', [Validators.required]],
+      initialMembers: [[]]
     });
   }
 
   ngOnInit() {
     this.loadData();
+    this.setupFormSubscriptions();
   }
 
   ngOnDestroy() {
@@ -298,8 +343,24 @@ export class TeamManagementComponent implements OnInit, OnDestroy {
       }),
       this.userService.getAllUsers().subscribe(users => {
         this.users = users;
+        // Filter out admin users for team member selection
+        this.availableUsers = users.filter(user => user.role !== 'admin');
       })
     );
+  }
+
+  setupFormSubscriptions() {
+    this.teamForm.get('initialMembers')?.valueChanges.subscribe(selectedIds => {
+      this.selectedMembersList = this.availableUsers.filter(user => 
+        selectedIds.includes(user.id)
+      );
+    });
+  }
+
+  removeSelectedMember(memberId: string) {
+    const currentSelected = this.teamForm.get('initialMembers')?.value || [];
+    const updatedSelected = currentSelected.filter((id: string) => id !== memberId);
+    this.teamForm.patchValue({ initialMembers: updatedSelected });
   }
 
   openCreateDialog() {
@@ -316,7 +377,13 @@ export class TeamManagementComponent implements OnInit, OnDestroy {
     if (this.teamForm.invalid) return;
 
     this.isLoading = true;
-    const teamData = this.teamForm.value;
+    const formValue = this.teamForm.value;
+    const teamData = {
+      name: formValue.name,
+      description: formValue.description,
+      domainId: formValue.domainId,
+      initialMembers: formValue.initialMembers || []
+    };
 
     this.subscriptions.push(
       this.teamService.createTeam(teamData).subscribe({

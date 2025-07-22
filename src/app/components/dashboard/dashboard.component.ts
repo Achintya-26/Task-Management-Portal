@@ -366,9 +366,9 @@ import { forkJoin } from 'rxjs';
     }
 
     .status-pending { background-color: #ff9800; color: white; }
-    .status-in_progress { background-color: #2196f3; color: white; }
+    .status-in-progress { background-color: #2196f3; color: white; }
     .status-completed { background-color: #4caf50; color: white; }
-    .status-on_hold { background-color: #f44336; color: white; }
+    .status-on-hold { background-color: #f44336; color: white; }
 
     .empty-state {
       text-align: center;
@@ -500,9 +500,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   getStatusLabel(status: string): string {
     const statusLabels: { [key: string]: string } = {
       'pending': 'Pending',
-      'in_progress': 'In Progress',
+      'in-progress': 'In Progress',
       'completed': 'Completed',
-      'on_hold': 'On Hold'
+      'on-hold': 'On Hold'
     };
     return statusLabels[status] || status;
   }

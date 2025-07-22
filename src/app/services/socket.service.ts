@@ -29,6 +29,15 @@ export class SocketService {
     this.socket.emit('join-team', teamId);
   }
 
+  leaveTeam(teamId: string): void {
+    this.socket.emit('leave-team', teamId);
+  }
+
+  leaveAllRooms(): void {
+    this.socket.disconnect();
+    this.socket.connect();
+  }
+
   onTeamUpdated(): Observable<any> {
     return new Observable(observer => {
       this.socket.on('team_updated', data => observer.next(data));

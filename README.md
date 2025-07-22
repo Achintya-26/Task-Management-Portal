@@ -44,13 +44,40 @@ A comprehensive task management system built with Angular and Express.js, featur
 - JWT for authentication
 - Multer for file uploads
 - bcryptjs for password hashing
-- In-memory data storage (can be easily replaced with a database)
+- PostgreSQL database with pg driver
+- Connection pooling for performance
+
+### Database (PostgreSQL)
+- PostgreSQL 12+ with UUID support
+- Relational schema with proper constraints
+- Indexes for optimal performance
+- Automatic timestamp updates
+- Transaction support for data integrity
 
 ## Setup Instructions
 
 ### Prerequisites
 - Node.js (v18 or higher)
 - npm (v8 or higher)
+- PostgreSQL (v12 or higher)
+
+### Database Setup
+
+1. Install PostgreSQL (see POSTGRES_SETUP.md for detailed instructions)
+
+2. Create the database:
+   ```sql
+   CREATE DATABASE task_management;
+   ```
+
+3. Update database credentials in `backend/.env`:
+   ```env
+   DB_HOST=localhost
+   DB_PORT=5432
+   DB_NAME=task_management
+   DB_USER=postgres
+   DB_PASSWORD=your_password
+   ```
 
 ### Backend Setup
 
@@ -64,7 +91,12 @@ A comprehensive task management system built with Angular and Express.js, featur
    npm install
    ```
 
-3. Start the backend server:
+3. Set up the database schema:
+   ```bash
+   npm run setup-db
+   ```
+
+4. Start the backend server:
    ```bash
    npm run dev
    ```

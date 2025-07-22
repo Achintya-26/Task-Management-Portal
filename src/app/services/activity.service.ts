@@ -15,7 +15,11 @@ export class ActivityService {
     return this.http.get<Activity[]>(`${this.apiUrl}/team/${teamId}`);
   }
 
-  createActivity(activityData: FormData): Observable<any> {
+  createActivity(activityData: FormData | any): Observable<any> {
+    return this.http.post(this.apiUrl, activityData);
+  }
+
+  createActivityWithData(activityData: any): Observable<any> {
     return this.http.post(this.apiUrl, activityData);
   }
 

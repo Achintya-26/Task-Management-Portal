@@ -9,6 +9,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatTableModule } from '@angular/material/table';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { TeamService } from '../../services/team.service';
 import { ActivityService } from '../../services/activity.service';
@@ -16,6 +17,8 @@ import { AuthService } from '../../services/auth.service';
 import { SocketService } from '../../services/socket.service';
 import { Team, Activity, User } from '../../models';
 import { Subscription } from 'rxjs';
+import { AddMembersDialogComponent } from '../dialogs/add-members-dialog/add-members-dialog.component';
+import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog/create-activity-dialog.component';
 
 @Component({
   selector: 'app-team-details',
@@ -101,8 +104,8 @@ import { Subscription } from 'rxjs';
                 </button>
                 <button 
                   mat-chip 
-                  [class.selected]="selectedStatus === 'in_progress'"
-                  (click)="setStatusFilter('in_progress')"
+                  [class.selected]="selectedStatus === 'in-progress'"
+                  (click)="setStatusFilter('in-progress')"
                 >
                   In Progress
                 </button>
@@ -115,8 +118,8 @@ import { Subscription } from 'rxjs';
                 </button>
                 <button 
                   mat-chip 
-                  [class.selected]="selectedStatus === 'on_hold'"
-                  (click)="setStatusFilter('on_hold')"
+                  [class.selected]="selectedStatus === 'on-hold'"
+                  (click)="setStatusFilter('on-hold')"
                 >
                   On Hold
                 </button>
@@ -150,11 +153,11 @@ import { Subscription } from 'rxjs';
                     </div>
                     <div class="detail-item">
                       <mat-icon>attachment</mat-icon>
-                      <span>{{ activity.attachments.length }} attachment(s)</span>
+                      <span>{{ getAttachmentsCount(activity) }} attachment(s)</span>
                     </div>
                     <div class="detail-item">
                       <mat-icon>comment</mat-icon>
-                      <span>{{ activity.remarks.length }} remark(s)</span>
+                      <span>{{ getRemarksCount(activity) }} remark(s)</span>
                     </div>
                   </div>
 
@@ -181,13 +184,13 @@ import { Subscription } from 'rxjs';
                     <button mat-menu-item (click)="updateActivityStatus(activity.id, 'pending')">
                       Mark as Pending
                     </button>
-                    <button mat-menu-item (click)="updateActivityStatus(activity.id, 'in_progress')">
+                    <button mat-menu-item (click)="updateActivityStatus(activity.id, 'in-progress')">
                       Mark as In Progress
                     </button>
                     <button mat-menu-item (click)="updateActivityStatus(activity.id, 'completed')">
                       Mark as Completed
                     </button>
-                    <button mat-menu-item (click)="updateActivityStatus(activity.id, 'on_hold')">
+                    <button mat-menu-item (click)="updateActivityStatus(activity.id, 'on-hold')">
                       Mark as On Hold
                     </button>
                   </mat-menu>
@@ -272,9 +275,17 @@ import { Subscription } from 'rxjs';
       </mat-tab-group>
     </div>
 
-    <div class="loading-state" *ngIf="!team">
+    <div class="loading-state" *ngIf="!team && isLoading">
       <mat-icon>groups</mat-icon>
       <p>Loading team details...</p>
+    </div>
+
+    <div class="error-state" *ngIf="!team && !isLoading">
+      <mat-icon>error</mat-icon>
+      <p>Failed to load team details</p>
+      <button mat-raised-button color="primary" (click)="goBack()">
+        Go Back to Teams
+      </button>
     </div>
   `,
   styles: [`
@@ -388,9 +399,9 @@ import { Subscription } from 'rxjs';
     }
 
     .status-icon-pending { color: #ff9800; }
-    .status-icon-in_progress { color: #2196f3; }
+    .status-icon-in-progress { color: #2196f3; }
     .status-icon-completed { color: #4caf50; }
-    .status-icon-on_hold { color: #f44336; }
+    .status-icon-on-hold { color: #f44336; }
 
     .activity-description {
       font-size: 14px;
@@ -427,9 +438,9 @@ import { Subscription } from 'rxjs';
     }
 
     .status-pending { background-color: #ff9800; color: white; }
-    .status-in_progress { background-color: #2196f3; color: white; }
+    .status-in-progress { background-color: #2196f3; color: white; }
     .status-completed { background-color: #4caf50; color: white; }
-    .status-on_hold { background-color: #f44336; color: white; }
+    .status-on-hold { background-color: #f44336; color: white; }
 
     .members-header {
       display: flex;
@@ -600,6 +611,8 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
   isAdmin = false;
   currentUser: User | null = null;
   private subscriptions: Subscription[] = [];
+  private currentTeamId: string | null = null;
+  isLoading = false;
 
   constructor(
     private route: ActivatedRoute,
@@ -608,6 +621,7 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
     private activityService: ActivityService,
     private authService: AuthService,
     private socketService: SocketService,
+    private dialog: MatDialog,
     private snackBar: MatSnackBar
   ) {}
 
@@ -619,6 +633,10 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
       this.route.params.subscribe(params => {
         const teamId = params['id'];
         if (teamId) {
+          // Reset component state
+          this.resetComponentState();
+          
+          // Load fresh data
           this.loadTeamDetails(teamId);
           this.loadActivities(teamId);
           this.setupSocketListeners(teamId);
@@ -628,16 +646,42 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    this.subscriptions.forEach(sub => sub.unsubscribe());
+    // Leave current team room if any
+    if (this.currentTeamId) {
+      this.socketService.leaveTeam(this.currentTeamId);
+    }
+    
+    // Unsubscribe from all subscriptions
+    this.subscriptions.forEach(sub => {
+      if (sub && !sub.closed) {
+        sub.unsubscribe();
+      }
+    });
+    this.subscriptions = [];
+  }
+
+  resetComponentState() {
+    this.team = null;
+    this.activities = [];
+    this.filteredActivities = [];
+    this.selectedStatus = '';
+    this.isLoading = false;
   }
 
   loadTeamDetails(teamId: string) {
+    if (this.isLoading) return;
+    
+    this.isLoading = true;
     this.subscriptions.push(
       this.teamService.getTeamById(teamId).subscribe({
         next: (team) => {
           this.team = team;
+          this.isLoading = false;
+          console.log('Team loaded successfully:', team);
         },
         error: (error) => {
+          console.error('Error loading team details:', error);
+          this.isLoading = false;
           this.snackBar.open('Failed to load team details', 'Close', { duration: 3000 });
           this.router.navigate(['/teams']);
         }
@@ -647,24 +691,44 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
 
   loadActivities(teamId: string) {
     this.subscriptions.push(
-      this.activityService.getActivitiesForTeam(teamId).subscribe(activities => {
-        this.activities = activities;
-        this.filterActivities();
+      this.activityService.getActivitiesForTeam(teamId).subscribe({
+        next: (activities) => {
+          this.activities = activities || [];
+          this.filterActivities();
+          console.log('Activities loaded successfully:', activities);
+        },
+        error: (error) => {
+          console.error('Error loading activities:', error);
+          this.activities = [];
+          this.filteredActivities = [];
+          this.snackBar.open('Failed to load activities', 'Close', { duration: 3000 });
+        }
       })
     );
   }
 
   setupSocketListeners(teamId: string) {
+    // Leave previous team room if any
+    if (this.currentTeamId && this.currentTeamId !== teamId) {
+      this.socketService.leaveTeam(this.currentTeamId);
+    }
+    
+    // Join new team room
+    this.currentTeamId = teamId;
     this.socketService.joinTeam(teamId);
     
+    // Set up listeners (only once per team)
     this.subscriptions.push(
       this.socketService.onActivityCreated().subscribe(() => {
+        console.log('Activity created event received');
         this.loadActivities(teamId);
       }),
       this.socketService.onActivityUpdated().subscribe(() => {
+        console.log('Activity updated event received');
         this.loadActivities(teamId);
       }),
       this.socketService.onTeamUpdated().subscribe(() => {
+        console.log('Team updated event received');
         this.loadTeamDetails(teamId);
       })
     );
@@ -701,9 +765,9 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
   getActivityIcon(status: string): string {
     const icons: { [key: string]: string } = {
       'pending': 'schedule',
-      'in_progress': 'play_circle',
+      'in-progress': 'play_circle',
       'completed': 'check_circle',
-      'on_hold': 'pause_circle'
+      'on-hold': 'pause_circle'
     };
     return icons[status] || 'help';
   }
@@ -711,17 +775,25 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
   getStatusLabel(status: string): string {
     const labels: { [key: string]: string } = {
       'pending': 'Pending',
-      'in_progress': 'In Progress',
+      'in-progress': 'In Progress',
       'completed': 'Completed',
-      'on_hold': 'On Hold'
+      'on-hold': 'On Hold'
     };
     return labels[status] || status;
   }
 
-  getAssignedMembersText(assignedMembers: string[]): string {
-    if (!this.team) return '';
+  getAssignedMembersText(assignedUsers: string[] | string): string {
+    if (!this.team) return 'No assignees';
     
-    const memberNames = assignedMembers
+    // Handle both array and comma-separated string formats
+    let memberIds: string[] = [];
+    if (Array.isArray(assignedUsers)) {
+      memberIds = assignedUsers;
+    } else if (typeof assignedUsers === 'string') {
+      memberIds = assignedUsers.split(',').map(id => id.trim()).filter(id => id);
+    }
+    
+    const memberNames = memberIds
       .map(id => this.team!.members.find(m => m.userId === id)?.name)
       .filter(name => name);
     
@@ -732,18 +804,60 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
   }
 
   getMemberActivityCount(userId: string): number {
-    return this.activities.filter(a => a.assignedMembers.includes(userId)).length;
+    return this.activities.filter(a => {
+      // Handle assignedMembers which might come as array or comma-separated string from DB
+      let assignedIds: string[] = [];
+      if (Array.isArray(a.assignedMembers)) {
+        assignedIds = a.assignedMembers;
+      } else if (a.assignedMembers && typeof a.assignedMembers === 'string') {
+        assignedIds = (a.assignedMembers as any).split(',').map((id: string) => id.trim());
+      } else if (a.assignedMembers) {
+        // Handle other possible formats
+        assignedIds = String(a.assignedMembers).split(',').map((id: string) => id.trim());
+      }
+      return assignedIds.includes(userId);
+    }).length;
   }
 
   getMemberCompletedCount(userId: string): number {
-    return this.activities.filter(a => 
-      a.assignedMembers.includes(userId) && a.status === 'completed'
-    ).length;
+    return this.activities.filter(a => {
+      // Handle assignedMembers which might come as array or comma-separated string from DB
+      let assignedIds: string[] = [];
+      if (Array.isArray(a.assignedMembers)) {
+        assignedIds = a.assignedMembers;
+      } else if (a.assignedMembers && typeof a.assignedMembers === 'string') {
+        assignedIds = (a.assignedMembers as any).split(',').map((id: string) => id.trim());
+      } else if (a.assignedMembers) {
+        // Handle other possible formats
+        assignedIds = String(a.assignedMembers).split(',').map((id: string) => id.trim());
+      }
+      return assignedIds.includes(userId) && a.status === 'completed';
+    }).length;
   }
 
   canUpdateActivity(activity: Activity): boolean {
-    return this.isAdmin || 
-           (this.currentUser !== null && activity.assignedMembers.includes(this.currentUser.id));
+    if (this.isAdmin) return true;
+    if (!this.currentUser) return false;
+    
+    // Handle assignedMembers which might come as array or comma-separated string from DB
+    let assignedIds: string[] = [];
+    if (Array.isArray(activity.assignedMembers)) {
+      assignedIds = activity.assignedMembers;
+    } else if (activity.assignedMembers && typeof activity.assignedMembers === 'string') {
+      assignedIds = (activity.assignedMembers as any).split(',').map((id: string) => id.trim());
+    } else if (activity.assignedMembers) {
+      assignedIds = String(activity.assignedMembers).split(',').map((id: string) => id.trim());
+    }
+    
+    return assignedIds.includes(this.currentUser.id);
+  }
+
+  getAttachmentsCount(activity: Activity): number {
+    return activity.attachments ? activity.attachments.length : 0;
+  }
+
+  getRemarksCount(activity: Activity): number {
+    return activity.remarks ? activity.remarks.length : 0;
   }
 
   updateActivityStatus(activityId: string, status: string) {
@@ -781,13 +895,43 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
   }
 
   openCreateActivityDialog() {
-    // This would open a dialog to create new activity
-    this.snackBar.open('Create activity dialog not implemented yet', 'Close', { duration: 3000 });
+    if (!this.team) return;
+
+    const dialogRef = this.dialog.open(CreateActivityDialogComponent, {
+      width: '600px',
+      data: {
+        teamId: this.team.id,
+        teamName: this.team.name,
+        members: this.team.members || []
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.loadActivities(this.team!.id); // Reload activities
+      }
+    });
   }
 
   openAddMembersDialog() {
-    // This would open a dialog to add members
-    this.snackBar.open('Add members dialog not implemented yet', 'Close', { duration: 3000 });
+    if (!this.team) return;
+
+    const currentMemberIds = this.team.members?.map(m => m.userId) || [];
+    
+    const dialogRef = this.dialog.open(AddMembersDialogComponent, {
+      width: '500px',
+      data: {
+        teamId: this.team.id,
+        teamName: this.team.name,
+        currentMembers: currentMemberIds
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.loadTeamDetails(this.team!.id); // Reload team details to get updated members
+      }
+    });
   }
 
   openEditTeamDialog() {
