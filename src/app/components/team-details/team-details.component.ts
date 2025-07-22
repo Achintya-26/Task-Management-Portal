@@ -676,8 +676,10 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
       this.teamService.getTeamById(teamId).subscribe({
         next: (team) => {
           this.team = team;
+          console.log("Team is :::", team);
           this.isLoading = false;
           console.log('Team loaded successfully:', team);
+          console.log('Team members structure:', team.members);
         },
         error: (error) => {
           console.error('Error loading team details:', error);
@@ -693,9 +695,14 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
     this.subscriptions.push(
       this.activityService.getActivitiesForTeam(teamId).subscribe({
         next: (activities) => {
+          // activities = activities.map(activity => ({ ...activity, userId: activity.userId }));
+          console.log('Raw activities response:', activities);
           this.activities = activities || [];
           this.filterActivities();
-          console.log('Activities loaded successfully:', activities);
+          console.log('Activities loaded successfully:', activities?.length || 0, 'activities');
+          if (activities && activities.length > 0) {
+            console.log('Sample activity structure:', activities[0]);
+          }
         },
         error: (error) => {
           console.error('Error loading activities:', error);
@@ -783,7 +790,10 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
   }
 
   getAssignedMembersText(assignedUsers: string[] | string): string {
-    if (!this.team) return 'No assignees';
+    console.log('getAssignedMembersText - assignedUsers:', assignedUsers);
+    console.log('getAssignedMembersText - team members:', this.team?.members);
+    
+    if (!this.team || !assignedUsers) return 'No assignees';
     
     // Handle both array and comma-separated string formats
     let memberIds: string[] = [];
@@ -793,9 +803,21 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
       memberIds = assignedUsers.split(',').map(id => id.trim()).filter(id => id);
     }
     
+    console.log('Extracted member IDs:', memberIds);
+    
+    if (memberIds.length === 0) return 'No assignees';
+    
+    // Look up members by their user ID (which matches the assigned user IDs)
+    console.log("-------|||||-------",this.team!.members);
     const memberNames = memberIds
-      .map(id => this.team!.members.find(m => m.userId === id)?.name)
+      .map(id => {
+        const member = this.team!.members.find(m => m.id === id);
+        console.log(`Looking for ID ${id}, found member:`, member);
+        return member?.name;
+      })
       .filter(name => name);
+    
+    console.log('Found member names:', memberNames);
     
     if (memberNames.length === 0) return 'No assignees';
     if (memberNames.length === 1) return memberNames[0]!;
@@ -853,11 +875,11 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
   }
 
   getAttachmentsCount(activity: Activity): number {
-    return activity.attachments ? activity.attachments.length : 0;
+    return activity.attachments && Array.isArray(activity.attachments) ? activity.attachments.length : 0;
   }
 
   getRemarksCount(activity: Activity): number {
-    return activity.remarks ? activity.remarks.length : 0;
+    return activity.remarks && Array.isArray(activity.remarks) ? activity.remarks.length : 0;
   }
 
   updateActivityStatus(activityId: string, status: string) {
@@ -940,7 +962,11 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
   }
 
   formatDate(dateString: string): string {
+    if (!dateString) return 'Unknown date';
+    
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Invalid date';
+    
     const now = new Date();
     const diffTime = now.getTime() - date.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));

@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { Activity } from '../models';
 
 @Injectable({
@@ -12,7 +13,17 @@ export class ActivityService {
   constructor(private http: HttpClient) {}
 
   getActivitiesForTeam(teamId: string): Observable<Activity[]> {
-    return this.http.get<Activity[]>(`${this.apiUrl}/team/${teamId}`);
+    return this.http.get<any[]>(`${this.apiUrl}/team/${teamId}`).pipe(
+      map(activities => activities.map(activity => ({
+        ...activity,
+        assignedMembers: activity.assigned_user_ids || [],
+        attachments: activity.attachments || [],
+        remarks: activity.remarks || [],
+        createdAt: activity.created_at || activity.createdAt,
+        updatedAt: activity.updated_at || activity.updatedAt,
+        targetDate: activity.target_date || activity.targetDate
+      })))
+    );
   }
 
   createActivity(activityData: FormData | any): Observable<any> {
@@ -32,6 +43,16 @@ export class ActivityService {
   }
 
   getActivityById(activityId: string): Observable<Activity> {
-    return this.http.get<Activity>(`${this.apiUrl}/${activityId}`);
+    return this.http.get<any>(`${this.apiUrl}/${activityId}`).pipe(
+      map(activity => ({
+        ...activity,
+        assignedMembers: activity.assigned_user_ids || [],
+        attachments: activity.attachments || [],
+        remarks: activity.remarks || [],
+        createdAt: activity.created_at || activity.createdAt,
+        updatedAt: activity.updated_at || activity.updatedAt,
+        targetDate: activity.target_date || activity.targetDate
+      }))
+    );
   }
 }

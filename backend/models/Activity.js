@@ -31,19 +31,33 @@ class Activity {
   static async findByTeamId(teamId) {
     const result = await query(
       `SELECT a.*, t.name as team_name, u.name as created_by_name,
-       ARRAY_AGG(DISTINCT au.name) as assigned_users,
-       ARRAY_AGG(DISTINCT au.id) as assigned_user_ids
+       ARRAY_AGG(DISTINCT au.name) FILTER (WHERE au.name IS NOT NULL) as assigned_users,
+       ARRAY_AGG(DISTINCT au.id) FILTER (WHERE au.id IS NOT NULL) as assigned_user_ids,
+       COUNT(DISTINCT ar.id) as remarks_count,
+       COUNT(DISTINCT at.id) as attachments_count
        FROM activities a
        LEFT JOIN teams t ON a.team_id = t.id
        LEFT JOIN users u ON a.created_by = u.id
        LEFT JOIN activity_assignments aa ON a.id = aa.activity_id
        LEFT JOIN users au ON aa.user_id = au.id
+       LEFT JOIN activity_remarks ar ON a.id = ar.activity_id
+       LEFT JOIN activity_attachments at ON a.id = at.activity_id
        WHERE a.team_id = $1
        GROUP BY a.id, t.name, u.name
        ORDER BY a.created_at DESC`,
       [teamId]
     );
-    return result.rows;
+    
+    // Transform the result to include empty arrays and counts as numbers
+    return result.rows.map(row => ({
+      ...row,
+      assigned_user_ids: row.assigned_user_ids || [],
+      assigned_users: row.assigned_users || [],
+      remarks: Array(parseInt(row.remarks_count) || 0).fill({}), // Create empty array with count
+      attachments: Array(parseInt(row.attachments_count) || 0).fill({}), // Create empty array with count
+      remarks_count: parseInt(row.remarks_count) || 0,
+      attachments_count: parseInt(row.attachments_count) || 0
+    }));
   }
 
   static async create(activityData) {

@@ -36,6 +36,7 @@ export interface Team {
 
 export interface TeamMember {
   userId: string;
+  id:string;
   empId: string;
   name: string;
   addedAt: string;
@@ -51,6 +52,7 @@ export interface Domain {
 export interface Activity {
   id: string;
   title: string;
+  userid:string;
   description: string;
   teamId: string;
   assignedMembers: string[];
@@ -74,10 +76,10 @@ export interface Attachment {
 
 export interface Remark {
   id: string;
-  text: string;
-  userId: string;
-  userName: string;
-  createdAt: string;
+  remark: string;
+  user_id: string;
+  user_name: string;
+  created_at: string;
 }
 
 export interface Notification {

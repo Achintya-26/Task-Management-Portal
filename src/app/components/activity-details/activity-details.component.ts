@@ -139,12 +139,12 @@ import { Subscription } from 'rxjs';
 
               <!-- Remarks List -->
               <div class="remarks-list" *ngIf="activity.remarks && activity.remarks.length > 0">
-                <div *ngFor="let remark of activity.remarks" class="remark-item">
+                <div *ngFor="let remarkk of activity.remarks" class="remark-item">
                   <div class="remark-header">
-                    <span class="remark-author">{{ remark.userName }}</span>
-                    <span class="remark-date">{{ formatDate(remark.createdAt) }}</span>
+                    <span class="remark-author">{{ remarkk.user_name }}</span>
+                    <span class="remark-date">{{ formatDate(remarkk.created_at) }}</span>
                   </div>
-                  <p class="remark-text">{{ remark.text }}</p>
+                  <p class="remark-text">{{ remarkk.remark }}</p>
                 </div>
               </div>
 
