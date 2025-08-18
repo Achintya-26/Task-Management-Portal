@@ -68,6 +68,8 @@ export interface Activity {
     }[];
   status: 'pending' | 'in-progress' | 'completed' | 'on-hold';
   createdBy: string;
+  createdByName?: string;
+  createdByEmpId?:string;
   createdAt: string;
   targetDate: string | null;
   attachments: Attachment[];

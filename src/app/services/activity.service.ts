@@ -21,7 +21,9 @@ export class ActivityService {
         remarks: activity.remarks || [],
         createdAt: activity.created_at || activity.createdAt,
         updatedAt: activity.updated_at || activity.updatedAt,
-        targetDate: activity.target_date || activity.targetDate
+        targetDate: activity.target_date || activity.targetDate,
+        createdByName: activity.creatorName || 'Unknown User',
+        createdByEmpId: activity.creatorEmpId || 'Unknown Emp ID'
       })))
     );
   }
@@ -51,7 +53,9 @@ export class ActivityService {
         remarks: activity.remarks || [],
         createdAt: activity.created_at || activity.createdAt,
         updatedAt: activity.updated_at || activity.updatedAt,
-        targetDate: activity.target_date || activity.targetDate
+        targetDate: activity.target_date || activity.targetDate,
+        createdByName: activity.creatorName || 'Unknown User',
+        createdByEmpId: activity.creatorEmpId || 'Unknown Emp ID'
       }))
     );
   }

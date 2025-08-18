@@ -209,7 +209,7 @@ import { map } from 'rxjs/operators';
                 <mat-icon>person</mat-icon>
                 <div>
                   <span class="info-label">Created by</span>
-                  <span class="info-value">{{ getCreatorName() }}</span>
+                  <span class="info-value">{{ getCreatorName() }} - {{ getCreatorEmpId() }}</span>
                 </div>
               </div>
 
@@ -671,8 +671,12 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
   }
 
   getCreatorName(): string {
-    // This would typically come from a service or be part of the activity data
-    return this.activity?.createdBy || 'Unknown User';
+    // Use the createdByName field if available, otherwise fall back to createdBy ID
+    return this.activity?.createdByName || this.activity?.createdBy || 'Unknown User';
+  }
+
+  getCreatorEmpId(): string {
+    return this.activity?.createdByEmpId || 'Unknown Emp ID';
   }
 
   formatDate(dateString: string): string {
