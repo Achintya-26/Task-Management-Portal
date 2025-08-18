@@ -73,6 +73,7 @@ export interface Activity {
   createdAt: string;
   targetDate: string | null;
   attachments: Attachment[];
+  links?: ActivityLink[];
   remarks: Remark[];
   updatedAt: string;
 }
@@ -81,9 +82,16 @@ export interface Attachment {
   id: string;
   filename: string;
   originalName: string;
-  path: string;
-  size: number;
+  filePath: string;
+  fileSize: number;
   uploadedAt: string;
+}
+
+export interface ActivityLink {
+  id: string;
+  url: string;
+  title?: string;
+  createdAt: string;
 }
 
 export interface Remark {

@@ -10,6 +10,8 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule, MAT_DATE_LOCALE } from '@angular/material/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatListModule } from '@angular/material/list';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivityService } from '../../../services/activity.service';
 import { TeamService } from '../../../services/team.service';
@@ -29,7 +31,9 @@ import { User } from '../../../models';
     MatDatepickerModule,
     MatNativeDateModule,
     MatIconModule,
-    MatChipsModule
+    MatChipsModule,
+    MatListModule,
+    MatProgressBarModule
   ],
   providers: [
     { provide: MAT_DATE_LOCALE, useValue: 'en-US' }
@@ -103,6 +107,91 @@ import { User } from '../../../models';
               </mat-chip>
             </mat-chip-listbox>
           </div>
+
+          <!-- File Upload Section -->
+          <div class="file-upload-section">
+            <h4>Attachments</h4>
+            <div class="file-input-container">
+              <input 
+                type="file" 
+                #fileInput 
+                (change)="onFilesSelected($event)"
+                multiple 
+                accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.xlsx,.xls,.ppt,.pptx"
+                style="display: none;"
+              >
+              <button 
+                type="button" 
+                mat-raised-button 
+                color="accent" 
+                (click)="fileInput.click()"
+                class="upload-button"
+              >
+                <mat-icon>attach_file</mat-icon>
+                Select Files
+              </button>
+              <span class="file-hint">
+                Supported: PDF, DOC, DOCX, TXT, JPG, PNG, GIF, Excel, PowerPoint (Max 10MB per file)
+              </span>
+            </div>
+
+            <!-- Selected Files List -->
+            <div class="selected-files" *ngIf="selectedFiles.length > 0">
+              <h5>Selected Files ({{ selectedFiles.length }}):</h5>
+              <mat-list>
+                <mat-list-item *ngFor="let file of selectedFiles; let i = index">
+                  <mat-icon matListItemIcon>{{ getFileIcon(file.name) }}</mat-icon>
+                  <div matListItemTitle>{{ file.name }}</div>
+                  <div matListItemLine>{{ formatFileSize(file.size) }}</div>
+                  <button 
+                    mat-icon-button 
+                    color="warn" 
+                    (click)="removeFile(i)"
+                    matListItemMeta
+                  >
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </mat-list-item>
+              </mat-list>
+            </div>
+
+            <!-- Links Section -->
+            <div class="links-section">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Add Related Links</mat-label>
+                <input 
+                  matInput 
+                  #linkInput
+                  placeholder="Enter URL (e.g., https://example.com)"
+                  (keyup.enter)="addLink(linkInput.value); linkInput.value = ''"
+                >
+                <button 
+                  type="button"
+                  mat-icon-button 
+                  matSuffix 
+                  (click)="addLink(linkInput.value); linkInput.value = ''"
+                  [disabled]="!linkInput.value"
+                >
+                  <mat-icon>add</mat-icon>
+                </button>
+              </mat-form-field>
+
+              <!-- Selected Links -->
+              <div class="selected-links" *ngIf="selectedLinks.length > 0">
+                <h5>Related Links:</h5>
+                <mat-chip-listbox>
+                  <mat-chip 
+                    *ngFor="let link of selectedLinks; let i = index"
+                    (removed)="removeLink(i)"
+                  >
+                    <mat-icon matChipAvatar>link</mat-icon>
+                    {{ link }}
+                    <mat-icon matChipRemove>cancel</mat-icon>
+                  </mat-chip>
+                </mat-chip-listbox>
+              </div>
+            </div>
+          </div>
         </form>
       </mat-dialog-content>
 
@@ -153,12 +242,72 @@ import { User } from '../../../models';
     mat-dialog-actions {
       padding: 16px 20px;
     }
+
+    .file-upload-section {
+      margin-top: 24px;
+      border-top: 1px solid #e0e0e0;
+      padding-top: 16px;
+    }
+
+    .file-upload-section h4 {
+      margin-bottom: 16px;
+      color: #666;
+    }
+
+    .file-input-container {
+      margin-bottom: 16px;
+    }
+
+    .upload-button {
+      margin-right: 16px;
+    }
+
+    .file-hint {
+      font-size: 12px;
+      color: #666;
+      line-height: 1.4;
+    }
+
+    .selected-files {
+      margin-top: 16px;
+    }
+
+    .selected-files h5 {
+      margin-bottom: 8px;
+      color: #666;
+      font-weight: 500;
+    }
+
+    .selected-files mat-list {
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .links-section {
+      margin-top: 20px;
+      border-top: 1px solid #e0e0e0;
+      padding-top: 16px;
+    }
+
+    .selected-links h5 {
+      margin-bottom: 8px;
+      color: #666;
+      font-weight: 500;
+    }
+
+    .selected-links mat-chip {
+      max-width: 300px;
+    }
   `]
 })
 export class CreateActivityDialogComponent implements OnInit {
   activityForm: FormGroup;
   teamMembers: User[] = [];
   selectedMembers: User[] = [];
+  selectedFiles: File[] = [];
+  selectedLinks: string[] = [];
   isLoading = false;
 
   constructor(
@@ -197,24 +346,131 @@ export class CreateActivityDialogComponent implements OnInit {
     this.activityForm.patchValue({ assignedUsers: updatedSelected });
   }
 
+  onFilesSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files) {
+      const newFiles = Array.from(input.files);
+      
+      // Validate file sizes (max 10MB per file)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      const validFiles = newFiles.filter(file => {
+        if (file.size > maxSize) {
+          this.snackBar.open(`File "${file.name}" is too large. Maximum size is 10MB.`, 'Close', { duration: 5000 });
+          return false;
+        }
+        return true;
+      });
+
+      // Add valid files to the selection
+      this.selectedFiles.push(...validFiles);
+      
+      // Reset input
+      input.value = '';
+      
+      if (validFiles.length > 0) {
+        this.snackBar.open(`${validFiles.length} file(s) selected`, 'Close', { duration: 2000 });
+      }
+    }
+  }
+
+  removeFile(index: number) {
+    this.selectedFiles.splice(index, 1);
+  }
+
+  addLink(url: string) {
+    if (url && url.trim()) {
+      const trimmedUrl = url.trim();
+      
+      // Basic URL validation
+      try {
+        new URL(trimmedUrl);
+        if (!this.selectedLinks.includes(trimmedUrl)) {
+          this.selectedLinks.push(trimmedUrl);
+        } else {
+          this.snackBar.open('This link has already been added', 'Close', { duration: 2000 });
+        }
+      } catch {
+        this.snackBar.open('Please enter a valid URL', 'Close', { duration: 3000 });
+      }
+    }
+  }
+
+  removeLink(index: number) {
+    this.selectedLinks.splice(index, 1);
+  }
+
+  getFileIcon(fileName: string): string {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return 'picture_as_pdf';
+      case 'doc':
+      case 'docx':
+        return 'description';
+      case 'xls':
+      case 'xlsx':
+        return 'grid_on';
+      case 'ppt':
+      case 'pptx':
+        return 'slideshow';
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+        return 'image';
+      case 'txt':
+        return 'text_snippet';
+      default:
+        return 'attachment';
+    }
+  }
+
+  formatFileSize(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
   async onCreateActivity() {
     if (this.activityForm.valid) {
       this.isLoading = true;
       
       try {
         const formValue = this.activityForm.value;
-        const activityData = {
-          name: formValue.name,
-          description: formValue.description,
-          priority: formValue.priority,
-          team_id: this.data.teamId,
-          targetDate: formValue.targetDate ? new Date(formValue.targetDate).toISOString() : null,
-          assignedUsers: formValue.assignedUsers || []
-        };
-
-        await this.activityService.createActivityWithData(activityData).toPromise();
         
-        this.snackBar.open('Activity created successfully', 'Close', { duration: 3000 });
+        // Create FormData for file upload
+        const formData = new FormData();
+        
+        // Add basic activity data
+        formData.append('name', formValue.name);
+        formData.append('description', formValue.description || '');
+        formData.append('priority', formValue.priority);
+        formData.append('team_id', this.data.teamId);
+        
+        if (formValue.targetDate) {
+          formData.append('targetDate', new Date(formValue.targetDate).toISOString());
+        }
+        
+        // Add assigned users as JSON string
+        if (formValue.assignedUsers && formValue.assignedUsers.length > 0) {
+          formData.append('assignedUsers', JSON.stringify(formValue.assignedUsers));
+        }
+        
+        // Add files
+        this.selectedFiles.forEach((file, index) => {
+          formData.append('attachments', file);
+        });
+        
+        // Add links as JSON string
+        if (this.selectedLinks.length > 0) {
+          formData.append('links', JSON.stringify(this.selectedLinks));
+        }
+
+        await this.activityService.createActivity(formData).toPromise();
+        
+        this.snackBar.open('Activity created successfully with attachments', 'Close', { duration: 3000 });
         this.dialogRef.close(true);
       } catch (error) {
         console.error('Error creating activity:', error);

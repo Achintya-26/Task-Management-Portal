@@ -18,6 +18,7 @@ export class ActivityService {
         ...activity,
         assignedMembers: activity.assignedMembers || [],
         attachments: activity.attachments || [],
+        links: activity.links || [],
         remarks: activity.remarks || [],
         createdAt: activity.created_at || activity.createdAt,
         updatedAt: activity.updated_at || activity.updatedAt,
@@ -44,12 +45,20 @@ export class ActivityService {
     return this.http.post(`${this.apiUrl}/${activityId}/remarks`, { text });
   }
 
+  downloadAttachment(attachmentName: string): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/files/${attachmentName}`, { 
+      responseType: 'blob',
+      observe: 'body'
+    });
+  }
+
   getActivityById(activityId: number): Observable<Activity> {
     return this.http.get<any>(`${this.apiUrl}/${activityId}`).pipe(
       map(activity => ({
         ...activity,
         assignedMembers: activity.assignedMembers || [],
         attachments: activity.attachments || [],
+        links: activity.links || [],
         remarks: activity.remarks || [],
         createdAt: activity.created_at || activity.createdAt,
         updatedAt: activity.updated_at || activity.updatedAt,
