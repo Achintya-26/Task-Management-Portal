@@ -31,7 +31,7 @@ import { forkJoin } from 'rxjs';
   template: `
     <div class="dashboard-container">
       <div class="dashboard-header">
-        <h1>Welcome back, {{ currentUser?.name }}!</h1>
+        <h1>Welcome back, {{ (authService.currentUser$ | async)?.name || currentUser?.name }}!</h1>
         <p class="subtitle">Here's an overview of your tasks and teams</p>
       </div>
 
@@ -148,7 +148,7 @@ import { forkJoin } from 'rxjs';
             <mat-card-content>
               <div class="activity-content">
                 <div class="activity-main">
-                  <h3>{{ activity.title }}</h3>
+                  <h3>{{ activity.name }}</h3>
                   <p class="activity-description">{{ activity.description }}</p>
                   <div class="activity-meta">
                     <mat-chip [class]="'status-' + activity.status">
@@ -430,14 +430,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
 
   constructor(
-    private authService: AuthService,
+    public authService: AuthService,
     private teamService: TeamService,
     private activityService: ActivityService,
     private socketService: SocketService
   ) {}
 
   ngOnInit() {
-    this.currentUser = this.authService.getCurrentUser();
+    // Subscribe to current user changes
+    this.subscriptions.push(
+      this.authService.currentUser$.subscribe(user => {
+        this.currentUser = user;
+      })
+    );
+    
     this.loadDashboardData();
     this.setupSocketListeners();
   }
@@ -462,7 +468,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     const activityRequests = this.teams.map(team => 
-      this.activityService.getActivitiesForTeam(team.id)
+      this.activityService.getActivitiesForTeam(parseInt(team.id))
     );
 
     this.subscriptions.push(
@@ -485,7 +491,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!currentUserId) return;
 
     this.recentActivities = this.activities
-      .filter(activity => activity.assignedMembers?.includes(currentUserId) || false)
+      .filter(activity => activity.assignedMembers?.map(m => m.id).includes(currentUserId) || false)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 

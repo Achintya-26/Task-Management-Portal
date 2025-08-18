@@ -3,7 +3,7 @@ export interface User {
   empId: string;
   name: string;
   role: 'admin' | 'user';
-  createdAt: string;
+  createdAt?: string ;
 }
 
 export interface LoginRequest {
@@ -18,6 +18,12 @@ export interface RegisterRequest {
 }
 
 export interface LoginResponse {
+  message: string;
+  token: string;
+  user: User;
+}
+
+export interface RegisterResponse {
   message: string;
   token: string;
   user: User;
@@ -51,11 +57,15 @@ export interface Domain {
 
 export interface Activity {
   id: string;
-  title: string;
+  name: string;
   userid:string;
   description: string;
   teamId: string;
-  assignedMembers?: string[];
+  assignedMembers?:{
+      id: string;
+      name: string;
+      empId:string;
+    }[];
   status: 'pending' | 'in-progress' | 'completed' | 'on-hold';
   createdBy: string;
   createdAt: string;
@@ -76,10 +86,13 @@ export interface Attachment {
 
 export interface Remark {
   id: string;
-  remark: string;
-  user_id: string;
-  user_name: string;
-  created_at: string;
+  text: string;
+  userId: string;
+  userName: string;
+  userEmpId: string;
+  activityId:number;
+  type:string;
+  createdAt: string;
 }
 
 export interface Notification {

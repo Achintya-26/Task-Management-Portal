@@ -16,7 +16,8 @@ import { ActivityService } from '../../services/activity.service';
 import { AuthService } from '../../services/auth.service';
 import { SocketService } from '../../services/socket.service';
 import { Team, Activity, User } from '../../models';
-import { Subscription } from 'rxjs';
+import { Subscription, Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { AddMembersDialogComponent } from '../dialogs/add-members-dialog/add-members-dialog.component';
 import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog/create-activity-dialog.component';
 
@@ -59,7 +60,7 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
           </div>
         </div>
 
-        <div class="header-actions" *ngIf="isAdmin">
+        <div class="header-actions" *ngIf="isAdmin$ | async">
           <button mat-raised-button color="primary" (click)="openCreateActivityDialog()">
             <mat-icon>add</mat-icon>
             Add Activity
@@ -136,7 +137,7 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
                   <mat-icon mat-card-avatar [class]="'status-icon-' + activity.status">
                     {{ getActivityIcon(activity.status) }}
                   </mat-icon>
-                  <mat-card-title>{{ activity.title }}</mat-card-title>
+                  <mat-card-title>{{ activity.name }}</mat-card-title>
                   <mat-card-subtitle>
                     Created {{ formatDate(activity.createdAt) }}
                     <span *ngIf="activity.targetDate"> • Due {{ formatDate(activity.targetDate) }}</span>
@@ -206,7 +207,7 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
                   <p *ngIf="selectedStatus">No activities found with the selected status.</p>
                   <p *ngIf="!selectedStatus">This team doesn't have any activities yet.</p>
                   <button 
-                    *ngIf="isAdmin && !selectedStatus" 
+                    *ngIf="(isAdmin$ | async) && !selectedStatus" 
                     mat-raised-button 
                     color="primary" 
                     (click)="openCreateActivityDialog()"
@@ -225,7 +226,7 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
             <div class="members-header">
               <h2>Team Members</h2>
               <button 
-                *ngIf="isAdmin" 
+                *ngIf="isAdmin$ | async" 
                 mat-raised-button 
                 color="primary" 
                 (click)="openAddMembersDialog()"
@@ -259,7 +260,7 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
                     </div>
                   </div>
                 </mat-card-content>
-                <mat-card-actions *ngIf="isAdmin">
+                <mat-card-actions *ngIf="isAdmin$ | async">
                   <button 
                     mat-button 
                     color="warn" 
@@ -608,7 +609,7 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
   activities: Activity[] = [];
   filteredActivities: Activity[] = [];
   selectedStatus = '';
-  isAdmin = false;
+  isAdmin$: Observable<boolean>;
   currentUser: User | null = null;
   private subscriptions: Subscription[] = [];
   private currentTeamId: string | null = null;
@@ -623,11 +624,12 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
     private socketService: SocketService,
     private dialog: MatDialog,
     private snackBar: MatSnackBar
-  ) {}
+  ) {
+    this.isAdmin$ = this.authService.isAdmin();
+  }
 
   ngOnInit() {
     this.currentUser = this.authService.getCurrentUser();
-    this.isAdmin = this.authService.isAdmin();
     
     this.subscriptions.push(
       this.route.params.subscribe(params => {
@@ -693,7 +695,7 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
 
   loadActivities(teamId: string) {
     this.subscriptions.push(
-      this.activityService.getActivitiesForTeam(teamId).subscribe({
+      this.activityService.getActivitiesForTeam(parseInt(teamId)).subscribe({
         next: (activities) => {
           // activities = activities.map(activity => ({ ...activity, userId: activity.userId }));
           console.log('Raw activities response:', activities);
@@ -789,7 +791,7 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
     return labels[status] || status;
   }
 
-  getAssignedMembersText(assignedUsers: string[] | string | undefined): string {
+  getAssignedMembersText(assignedUsers: Activity["assignedMembers"] | string | undefined): string {
     console.log('getAssignedMembersText - assignedUsers:', assignedUsers);
     console.log('getAssignedMembersText - team members:', this.team?.members);
     
@@ -798,7 +800,7 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
     // Handle both array and comma-separated string formats
     let memberIds: string[] = [];
     if (Array.isArray(assignedUsers)) {
-      memberIds = assignedUsers;
+      memberIds = assignedUsers.map(m => m.id);
     } else if (typeof assignedUsers === 'string') {
       memberIds = assignedUsers.split(',').map(id => id.trim()).filter(id => id);
     }
@@ -830,7 +832,7 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
       // Handle assignedMembers which might come as array or comma-separated string from DB
       let assignedIds: string[] = [];
       if (Array.isArray(a.assignedMembers)) {
-        assignedIds = a.assignedMembers;
+        assignedIds = a.assignedMembers.map(m => m.id);
       } else if (a.assignedMembers && typeof a.assignedMembers === 'string') {
         assignedIds = (a.assignedMembers as any).split(',').map((id: string) => id.trim());
       } else if (a.assignedMembers) {
@@ -846,7 +848,7 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
       // Handle assignedMembers which might come as array or comma-separated string from DB
       let assignedIds: string[] = [];
       if (Array.isArray(a.assignedMembers)) {
-        assignedIds = a.assignedMembers;
+        assignedIds = a.assignedMembers.map(m => m.id);
       } else if (a.assignedMembers && typeof a.assignedMembers === 'string') {
         assignedIds = (a.assignedMembers as any).split(',').map((id: string) => id.trim());
       } else if (a.assignedMembers) {
@@ -857,21 +859,25 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
     }).length;
   }
 
-  canUpdateActivity(activity: Activity): boolean {
-    if (this.isAdmin) return true;
-    if (!this.currentUser) return false;
-    
-    // Handle assignedMembers which might come as array or comma-separated string from DB
-    let assignedIds: string[] = [];
-    if (Array.isArray(activity.assignedMembers)) {
-      assignedIds = activity.assignedMembers;
-    } else if (activity.assignedMembers && typeof activity.assignedMembers === 'string') {
-      assignedIds = (activity.assignedMembers as any).split(',').map((id: string) => id.trim());
-    } else if (activity.assignedMembers) {
-      assignedIds = String(activity.assignedMembers).split(',').map((id: string) => id.trim());
-    }
-    
-    return assignedIds.includes(this.currentUser.id);
+  canUpdateActivity(activity: Activity): Observable<boolean> {
+    return this.isAdmin$.pipe(
+      map(isAdmin => {
+        if (isAdmin) return true;
+        if (!this.currentUser) return false;
+        
+        // Handle assignedMembers which might come as array or comma-separated string from DB
+        let assignedIds: string[] = [];
+        if (Array.isArray(activity.assignedMembers)) {
+          assignedIds = activity.assignedMembers.map(m => m.id);
+        } else if (activity.assignedMembers && typeof activity.assignedMembers === 'string') {
+          assignedIds = (activity.assignedMembers as any).split(',').map((id: string) => id.trim());
+        } else if (activity.assignedMembers) {
+          assignedIds = String(activity.assignedMembers).split(',').map((id: string) => id.trim());
+        }
+        
+        return assignedIds.includes(this.currentUser.id);
+      })
+    );
   }
 
   getAttachmentsCount(activity: Activity): number {
@@ -884,7 +890,7 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
 
   updateActivityStatus(activityId: string, status: string) {
     this.subscriptions.push(
-      this.activityService.updateActivityStatus(activityId, status).subscribe({
+      this.activityService.updateActivityStatus(parseInt(activityId), status).subscribe({
         next: () => {
           this.snackBar.open('Activity status updated', 'Close', { duration: 3000 });
           this.loadActivities(this.team!.id);

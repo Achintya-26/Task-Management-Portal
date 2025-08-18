@@ -10,7 +10,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { AuthService } from '../../../services/auth.service';
 import { NotificationService } from '../../../services/notification.service';
 import { SocketService } from '../../../services/socket.service';
-import { Subscription } from 'rxjs';
+import { Observable, of, Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-navbar',
@@ -43,7 +43,7 @@ import { Subscription } from 'rxjs';
               <mat-icon>groups</mat-icon>
               Teams
             </button>
-            <button *ngIf="authService.isAdmin()" mat-button routerLink="/admin" routerLinkActive="active">
+            <button *ngIf="isAdmin$ | async" mat-button routerLink="/admin" routerLinkActive="active">
               <mat-icon>admin_panel_settings</mat-icon>
               Admin
             </button>
@@ -244,6 +244,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
   currentUser: any = null;
   notifications: any[] = [];
   unreadCount = 0;
+  isAdmin$: Observable<boolean> = of(false);
   private subscriptions: Subscription[] = [];
 
   constructor(
@@ -255,6 +256,8 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.currentUser = this.authService.getCurrentUser();
+    this.isAdmin$ = this.authService.isAdmin();
+
     this.loadNotifications();
     this.loadUnreadCount();
     

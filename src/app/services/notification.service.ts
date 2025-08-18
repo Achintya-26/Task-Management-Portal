@@ -16,7 +16,7 @@ export class NotificationService {
   }
 
   markAsRead(notificationId: string): Observable<any> {
-    return this.http.patch(`${this.apiUrl}/${notificationId}/read`, {});
+    return this.http.put(`${this.apiUrl}/${notificationId}/read`, {});
   }
 
   markAllAsRead(): Observable<any> {
@@ -24,6 +24,6 @@ export class NotificationService {
   }
 
   getUnreadCount(): Observable<{ count: number }> {
-    return this.http.get<{ count: number }>(`${this.apiUrl}/unread-count`);
+    return this.http.get<{ count: number }>(`${this.apiUrl}/unread`);
   }
 }

@@ -13,7 +13,8 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
 import { ActivityService } from '../../services/activity.service';
 import { AuthService } from '../../services/auth.service';
 import { Activity, User } from '../../models';
-import { Subscription } from 'rxjs';
+import { Subscription, Observable, combineLatest } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 @Component({
   selector: 'app-activity-details',
@@ -55,7 +56,7 @@ import { Subscription } from 'rxjs';
         
         <div class="header-content">
           <div class="activity-info">
-            <h1>{{ activity.title }}</h1>
+            <h1>{{ activity.name }}</h1>
             <p class="activity-description">{{ activity.description }}</p>
             <div class="activity-meta">
               <mat-chip [class]="'status-' + activity.status">
@@ -87,8 +88,8 @@ import { Subscription } from 'rxjs';
                 <span class="label">Assigned Members:</span>
                 <div class="assigned-members">
                   <mat-chip-listbox>
-                    <mat-chip *ngFor="let memberId of activity.assignedMembers || []">
-                      {{ getMemberName(memberId) }}
+                    <mat-chip *ngFor="let member of activity.assignedMembers || []">
+                      {{ member.name }}
                     </mat-chip>
                   </mat-chip-listbox>
                 </div>
@@ -141,10 +142,10 @@ import { Subscription } from 'rxjs';
               <div class="remarks-list" *ngIf="activity.remarks && activity.remarks.length > 0">
                 <div *ngFor="let remarkk of activity.remarks" class="remark-item">
                   <div class="remark-header">
-                    <span class="remark-author">{{ remarkk.user_name }}</span>
-                    <span class="remark-date">{{ formatDate(remarkk.created_at) }}</span>
+                    <span class="remark-author">{{ remarkk.userName }}</span>
+                    <span class="remark-date">{{ formatDate(remarkk.createdAt) }}</span>
                   </div>
-                  <p class="remark-text">{{ remarkk.remark }}</p>
+                  <p class="remark-text">{{ remarkk.text }}</p>
                 </div>
               </div>
 
@@ -159,7 +160,7 @@ import { Subscription } from 'rxjs';
         <!-- Sidebar -->
         <div class="sidebar">
           <!-- Status Update -->
-          <mat-card class="status-card" *ngIf="canUpdateActivity()">
+          <mat-card class="status-card" *ngIf="canUpdate$ | async">
             <mat-card-header>
               <mat-card-title>Update Status</mat-card-title>
             </mat-card-header>
@@ -529,6 +530,10 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
   isAddingRemark = false;
   isUpdatingStatus = false;
   private subscriptions: Subscription[] = [];
+  
+  // Observable properties for template usage
+  isAdmin$: Observable<boolean>;
+  canUpdate$: Observable<boolean>;
 
   constructor(
     private route: ActivatedRoute,
@@ -546,6 +551,20 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
       status: ['', [Validators.required]],
       remarks: ['']
     });
+
+    // Initialize observables
+    this.isAdmin$ = this.authService.isAdmin();
+    
+    // Initialize canUpdate$ observable
+    this.canUpdate$ = combineLatest([
+      this.authService.isAdmin(),
+      this.authService.currentUser$
+    ]).pipe(
+      map(([isAdmin, user]) => {
+        if (!this.activity || !user || !this.activity.assignedMembers) return false;
+        return isAdmin || this.activity.assignedMembers.map(m => m.id).includes(user.id);
+      })
+    );
   }
 
   ngOnInit() {
@@ -553,7 +572,7 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
     
     this.subscriptions.push(
       this.route.params.subscribe(params => {
-        const activityId = params['id'];
+        const activityId = +params['id'];
         if (activityId) {
           this.loadActivityDetails(activityId);
         }
@@ -565,7 +584,7 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(sub => sub.unsubscribe());
   }
 
-  loadActivityDetails(activityId: string) {
+  loadActivityDetails(activityId: number) {
     console.log('Loading activity details for ID:', activityId);
     console.log('Current user:', this.currentUser);
     this.error = null; // Reset error state
@@ -588,11 +607,8 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
     );
   }
 
-  canUpdateActivity(): boolean {
-    if (!this.activity || !this.currentUser || !this.activity.assignedMembers) return false;
-    return this.authService.isAdmin() || 
-           this.activity.assignedMembers.includes(this.currentUser.id);
-  }
+  // Remove the old canUpdateActivity method since we're using canUpdate$ observable
+  // Use canUpdate$ | async in templates instead
 
   addRemark() {
     if (this.remarkForm.invalid || !this.activity) return;
@@ -601,12 +617,12 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
     const text = this.remarkForm.value.text;
 
     this.subscriptions.push(
-      this.activityService.addRemarkToActivity(this.activity.id, text).subscribe({
+      this.activityService.addRemarkToActivity(parseInt(this.activity.id), text).subscribe({
         next: (response) => {
           this.isAddingRemark = false;
           this.remarkForm.reset();
           this.snackBar.open('Remark added successfully', 'Close', { duration: 3000 });
-          this.loadActivityDetails(this.activity!.id);
+          this.loadActivityDetails(parseInt(this.activity!.id));
         },
         error: (error) => {
           this.isAddingRemark = false;
@@ -623,12 +639,12 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
     const { status, remarks } = this.statusForm.value;
 
     this.subscriptions.push(
-      this.activityService.updateActivityStatus(this.activity.id, status, remarks).subscribe({
+      this.activityService.updateActivityStatus(parseInt(this.activity.id), status, remarks).subscribe({
         next: (response) => {
           this.isUpdatingStatus = false;
           this.statusForm.patchValue({ remarks: '' });
           this.snackBar.open('Status updated successfully', 'Close', { duration: 3000 });
-          this.loadActivityDetails(this.activity!.id);
+          this.loadActivityDetails(parseInt(this.activity!.id));
         },
         error: (error) => {
           this.isUpdatingStatus = false;
@@ -655,9 +671,8 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
   }
 
   getCreatorName(): string {
-    if (!this.activity) return 'Unknown';
     // This would typically come from a service or be part of the activity data
-    return 'Admin User';
+    return this.activity?.createdBy || 'Unknown User';
   }
 
   formatDate(dateString: string): string {

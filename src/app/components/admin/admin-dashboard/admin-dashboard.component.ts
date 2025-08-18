@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -126,13 +126,14 @@ import { AuthService } from '../../../services/auth.service';
   `]
 })
 export class AdminDashboardComponent implements OnInit {
-  constructor(private authService: AuthService) {}
+  constructor(private authService: AuthService, private router:Router) {}
 
   ngOnInit() {
-    // Verify admin access
-    if (!this.authService.isAdmin()) {
-      // This should be handled by the guard, but double-check
-      console.error('Unauthorized access to admin dashboard');
-    }
+    // Always verify with backend before showing admin content
+    this.authService.canAccessAdminDashboard().subscribe(canAccess => {
+      if (!canAccess) {
+        this.router.navigate(['/dashboard']);
+      }
+    });
   }
 }

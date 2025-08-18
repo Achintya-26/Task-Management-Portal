@@ -12,11 +12,11 @@ export class ActivityService {
 
   constructor(private http: HttpClient) {}
 
-  getActivitiesForTeam(teamId: string): Observable<Activity[]> {
+  getActivitiesForTeam(teamId: number): Observable<Activity[]> {
     return this.http.get<any[]>(`${this.apiUrl}/team/${teamId}`).pipe(
       map(activities => activities.map(activity => ({
         ...activity,
-        assignedMembers: activity.assigned_user_ids || [],
+        assignedMembers: activity.assignedMembers || [],
         attachments: activity.attachments || [],
         remarks: activity.remarks || [],
         createdAt: activity.created_at || activity.createdAt,
@@ -34,19 +34,19 @@ export class ActivityService {
     return this.http.post(this.apiUrl, activityData);
   }
 
-  updateActivityStatus(activityId: string, status: string, remarks?: string): Observable<any> {
+  updateActivityStatus(activityId: number, status: string, remarks?: string): Observable<any> {
     return this.http.patch(`${this.apiUrl}/${activityId}/status`, { status, remarks });
   }
 
-  addRemarkToActivity(activityId: string, text: string): Observable<any> {
+  addRemarkToActivity(activityId: number, text: string): Observable<any> {
     return this.http.post(`${this.apiUrl}/${activityId}/remarks`, { text });
   }
 
-  getActivityById(activityId: string): Observable<Activity> {
+  getActivityById(activityId: number): Observable<Activity> {
     return this.http.get<any>(`${this.apiUrl}/${activityId}`).pipe(
       map(activity => ({
         ...activity,
-        assignedMembers: activity.assigned_user_ids || [],
+        assignedMembers: activity.assignedMembers || [],
         attachments: activity.attachments || [],
         remarks: activity.remarks || [],
         createdAt: activity.created_at || activity.createdAt,

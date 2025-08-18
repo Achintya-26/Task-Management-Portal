@@ -416,7 +416,7 @@ export class TeamsComponent implements OnInit, OnDestroy {
     }
 
     const activityRequests = this.teams.map(team => 
-      this.activityService.getActivitiesForTeam(team.id)
+      this.activityService.getActivitiesForTeam(parseInt(team.id))
     );
 
     this.subscriptions.push(

@@ -42,8 +42,8 @@ import { User } from '../../../models';
         <form [formGroup]="activityForm">
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Activity Title</mat-label>
-            <input matInput formControlName="title" placeholder="Enter activity title">
-            <mat-error *ngIf="activityForm.get('title')?.hasError('required')">
+            <input matInput formControlName="name" placeholder="Enter activity title">
+            <mat-error *ngIf="activityForm.get('name')?.hasError('required')">
               Title is required
             </mat-error>
           </mat-form-field>
@@ -171,7 +171,7 @@ export class CreateActivityDialogComponent implements OnInit {
   ) {
     this.teamMembers = data.members || [];
     this.activityForm = this.fb.group({
-      title: ['', Validators.required],
+      name: ['', Validators.required],
       description: [''],
       priority: ['medium'],
       targetDate: [null],
@@ -204,10 +204,10 @@ export class CreateActivityDialogComponent implements OnInit {
       try {
         const formValue = this.activityForm.value;
         const activityData = {
-          title: formValue.title,
+          name: formValue.name,
           description: formValue.description,
           priority: formValue.priority,
-          teamId: this.data.teamId,
+          team_id: this.data.teamId,
           targetDate: formValue.targetDate ? new Date(formValue.targetDate).toISOString() : null,
           assignedUsers: formValue.assignedUsers || []
         };
