@@ -10,10 +10,10 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { ActivityService } from '../../services/activity.service';
 import { AuthService } from '../../services/auth.service';
-import { Activity, User } from '../../models';
+import { Activity, User, Remark } from '../../models';
 import { Subscription, Observable, combineLatest } from 'rxjs';
 import { map } from 'rxjs/operators';
 
@@ -23,6 +23,7 @@ import { map } from 'rxjs/operators';
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    FormsModule,
     MatCardModule,
     MatButtonModule,
     MatIconModule,
@@ -179,12 +180,63 @@ import { map } from 'rxjs/operators';
 
               <!-- Remarks List -->
               <div class="remarks-list" *ngIf="activity.remarks && activity.remarks.length > 0">
-                <div *ngFor="let remarkk of activity.remarks" class="remark-item">
+                <div *ngFor="let remarkk of activity.remarks" 
+                     class="remark-item" 
+                     [class.status-update-remark]="remarkk.type === 'status-update'"
+                     [class.general-remark]="remarkk.type === 'general'">
                   <div class="remark-header">
-                    <span class="remark-author">{{ remarkk.userName }}</span>
-                    <span class="remark-date">{{ formatDate(remarkk.createdAt) }}</span>
+                    <div class="remark-author-info">
+                      <span class="remark-author">{{ remarkk.userName }}</span>
+                      <span class="remark-date">{{ formatDate(remarkk.createdAt) }}</span>
+                      <span *ngIf="remarkk.type === 'status-update'" class="status-badge">System Update</span>
+                    </div>
+                    <div class="remark-actions" *ngIf="canEditRemark(remarkk)">
+                      <button 
+                        mat-icon-button 
+                        color="primary" 
+                        (click)="editRemark(remarkk)"
+                        matTooltip="Edit remark"
+                        *ngIf="!remarkk.isEditing"
+                      >
+                        <mat-icon>edit</mat-icon>
+                      </button>
+                      <button 
+                        mat-icon-button 
+                        color="warn" 
+                        (click)="deleteRemark(remarkk.id)"
+                        matTooltip="Delete remark"
+                        *ngIf="!remarkk.isEditing"
+                      >
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                      <button 
+                        mat-icon-button 
+                        color="primary" 
+                        (click)="saveRemarkEdit(remarkk)"
+                        matTooltip="Save changes"
+                        *ngIf="remarkk.isEditing"
+                      >
+                        <mat-icon>save</mat-icon>
+                      </button>
+                      <button 
+                        mat-icon-button 
+                        (click)="cancelRemarkEdit(remarkk)"
+                        matTooltip="Cancel edit"
+                        *ngIf="remarkk.isEditing"
+                      >
+                        <mat-icon>cancel</mat-icon>
+                      </button>
+                    </div>
                   </div>
-                  <p class="remark-text">{{ remarkk.text }}</p>
+                  <div *ngIf="!remarkk.isEditing" class="remark-text">{{ remarkk.text }}</div>
+                  <mat-form-field *ngIf="remarkk.isEditing" appearance="outline" class="full-width remark-edit-field">
+                    <textarea
+                      matInput
+                      [(ngModel)]="remarkk.editText"
+                      placeholder="Edit your remark..."
+                      rows="3"
+                    ></textarea>
+                  </mat-form-field>
                 </div>
               </div>
 
@@ -265,6 +317,16 @@ import { map } from 'rxjs/operators';
                 <div>
                   <span class="info-label">Due Date</span>
                   <span class="info-value">{{ formatDate(activity.targetDate) }}</span>
+                </div>
+              </div>
+
+              <div class="info-item" *ngIf="activity.priority">
+                <mat-icon>flag</mat-icon>
+                <div>
+                  <span class="info-label">Priority</span>
+                  <span class="info-value priority-{{ activity.priority.toLowerCase() }}">
+                    {{ getPriorityLabel(activity.priority) }}
+                  </span>
                 </div>
               </div>
 
@@ -536,6 +598,67 @@ import { map } from 'rxjs/operators';
     .info-value {
       font-size: 14px;
       color: #333;
+    }
+
+    /* Priority styles */
+    .priority-low { color: #4caf50; font-weight: 500; }
+    .priority-medium { color: #ff9800; font-weight: 500; }
+    .priority-high { color: #f44336; font-weight: 500; }
+    .priority-urgent { color: #d32f2f; font-weight: 600; }
+
+    /* Enhanced remark styles */
+    .remark-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+
+    .remark-author-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .remark-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .remark-edit-field {
+      margin: 8px 0;
+    }
+
+    .remark-text {
+      margin: 0;
+      color: #555;
+      line-height: 1.5;
+    }
+
+    /* Status update remark styles */
+    .status-update-remark {
+      border-left: 4px solid #2196f3 !important;
+      background: #f3f8ff !important;
+      position: relative;
+    }
+
+    .status-update-remark .remark-text {
+      color: #1565c0;
+      font-style: italic;
+    }
+
+    .status-badge {
+      background: #2196f3;
+      color: white;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      text-transform: uppercase;
+      font-weight: 500;
+    }
+
+    .general-remark {
+      border-left: 4px solid #e0e0e0;
     }
 
     .full-width {
@@ -843,6 +966,78 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  getPriorityLabel(priority: string): string {
+    const labels: { [key: string]: string } = {
+      'low': 'Low',
+      'medium': 'Medium',
+      'high': 'High',
+      'urgent': 'Urgent'
+    };
+    return labels[priority?.toLowerCase()] || priority;
+  }
+
+  canEditRemark(remark: Remark): boolean {
+    if (!this.currentUser) return false;
+    
+    // Status update remarks cannot be edited or deleted
+    if (remark.type === 'status-update') return false;
+    
+    // Admin can edit all general remarks, user can edit only their own remarks
+    return this.currentUser.role === 'admin' || remark.userId === this.currentUser.id;
+  }
+
+  editRemark(remark: Remark) {
+    remark.isEditing = true;
+    remark.editText = remark.text;
+  }
+
+  cancelRemarkEdit(remark: Remark) {
+    remark.isEditing = false;
+    delete remark.editText;
+  }
+
+  saveRemarkEdit(remark: Remark) {
+    if (!remark.editText || remark.editText.trim() === '') {
+      this.snackBar.open('Remark text cannot be empty', 'Close', { duration: 3000 });
+      return;
+    }
+
+    this.subscriptions.push(
+      this.activityService.updateRemark(remark.id, remark.editText.trim()).subscribe({
+        next: (response) => {
+          remark.text = remark.editText!;
+          remark.isEditing = false;
+          delete remark.editText;
+          this.snackBar.open('Remark updated successfully', 'Close', { duration: 3000 });
+        },
+        error: (error) => {
+          this.snackBar.open('Failed to update remark', 'Close', { duration: 3000 });
+        }
+      })
+    );
+  }
+
+  deleteRemark(remarkId: string) {
+    if (!confirm('Are you sure you want to delete this remark?')) {
+      return;
+    }
+
+    this.subscriptions.push(
+      this.activityService.deleteRemark(remarkId).subscribe({
+        next: (response) => {
+          this.snackBar.open('Remark deleted successfully', 'Close', { duration: 3000 });
+          // Reload activity to refresh remarks list
+          if (this.activity) {
+            this.loadActivityDetails(parseInt(this.activity.id));
+          }
+        },
+        error: (error) => {
+          this.snackBar.open('Failed to delete remark', 'Close', { duration: 3000 });
+        }
+      })
+    );
   }
 
   goBack() {

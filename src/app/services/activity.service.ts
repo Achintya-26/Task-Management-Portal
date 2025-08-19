@@ -50,6 +50,14 @@ export class ActivityService {
     return this.http.post(`${this.apiUrl}/${activityId}/remarks`, { text });
   }
 
+  updateRemark(remarkId: string, text: string): Observable<any> {
+    return this.http.put(`${this.apiUrl}/remarks/${remarkId}`, { text });
+  }
+
+  deleteRemark(remarkId: string): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/remarks/${remarkId}`);
+  }
+
   downloadAttachment(attachmentName: string): Observable<Blob> {
     return this.http.get(`${this.apiUrl}/files/${attachmentName}`, { 
       responseType: 'blob',

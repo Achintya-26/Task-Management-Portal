@@ -105,6 +105,9 @@ export interface Remark {
   activityId:number;
   type:string;
   createdAt: string;
+  // UI-only properties for editing
+  isEditing?: boolean;
+  editText?: string;
 }
 
 export interface Notification {
