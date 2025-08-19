@@ -101,17 +101,21 @@ import { map } from 'rxjs/operators';
                 <span class="label">Attachments:</span>
                 <div class="attachments-list">
                   <div *ngFor="let attachment of activity.attachments" class="attachment-item">
-                    <mat-icon>{{ getFileIcon(attachment.originalName) }}</mat-icon>
-                    <span class="attachment-name">{{ attachment.originalName }}</span>
-                    <span class="file-size">({{ formatFileSize(attachment.fileSize) }})</span>
-                    <button 
-                      mat-icon-button 
-                      color="primary" 
-                      (click)="downloadAttachment(attachment)"
-                      matTooltip="Download file"
-                    >
-                      <mat-icon>download</mat-icon>
-                    </button>
+                    <mat-icon>{{ getAttachmentIcon(attachment.originalName) }}</mat-icon>
+                    <div class="attachment-info">
+                      <span class="attachment-name">{{ attachment.originalName }}</span>
+                      <span class="file-size">({{ formatFileSize(attachment.fileSize) }})</span>
+                    </div>
+                    <div class="attachment-actions">
+                      <button 
+                        mat-icon-button 
+                        color="primary" 
+                        (click)="downloadAttachment(attachment.filename, attachment.originalName)"
+                        matTooltip="Download attachment"
+                      >
+                        <mat-icon>download</mat-icon>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -121,16 +125,21 @@ import { map } from 'rxjs/operators';
                 <div class="links-list">
                   <div *ngFor="let link of activity.links" class="link-item">
                     <mat-icon>link</mat-icon>
-                    <a [href]="link.url" target="_blank" rel="noopener noreferrer" class="link-url">
+                    <a 
+                      [href]="link.url" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      class="link-url"
+                    >
                       {{ link.title || link.url }}
                     </a>
                     <button 
                       mat-icon-button 
                       color="primary" 
-                      (click)="copyLink(link.url)"
-                      matTooltip="Copy link"
+                      (click)="openLink(link.url)"
+                      matTooltip="Open in new tab"
                     >
-                      <mat-icon>content_copy</mat-icon>
+                      <mat-icon>open_in_new</mat-icon>
                     </button>
                   </div>
                 </div>
@@ -382,23 +391,33 @@ import { map } from 'rxjs/operators';
     .attachment-item {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 12px;
       padding: 12px;
-      background: #f8f9fa;
-      border: 1px solid #e9ecef;
+      background: #f5f5f5;
       border-radius: 8px;
       margin-bottom: 8px;
-      transition: background-color 0.2s;
+      transition: background-color 0.2s ease;
     }
 
     .attachment-item:hover {
-      background: #e9ecef;
+      background: #e8e8e8;
+    }
+
+    .attachment-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
     }
 
     .attachment-name {
-      flex: 1;
       font-weight: 500;
       color: #333;
+    }
+
+    .attachment-actions {
+      display: flex;
+      gap: 4px;
     }
 
     .links-list {
@@ -408,17 +427,16 @@ import { map } from 'rxjs/operators';
     .link-item {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 12px;
       padding: 12px;
       background: #f0f7ff;
-      border: 1px solid #b3d9ff;
       border-radius: 8px;
       margin-bottom: 8px;
-      transition: background-color 0.2s;
+      transition: background-color 0.2s ease;
     }
 
     .link-item:hover {
-      background: #e6f3ff;
+      background: #e3f2fd;
     }
 
     .link-url {
@@ -426,10 +444,7 @@ import { map } from 'rxjs/operators';
       color: #1976d2;
       text-decoration: none;
       font-weight: 500;
-      max-width: 300px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      word-break: break-all;
     }
 
     .link-url:hover {
@@ -670,8 +685,6 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
       this.activityService.getActivityById(activityId).subscribe({
         next: (activity) => {
           console.log('Activity loaded successfully:', activity);
-          console.log('Attachments:', activity.attachments);
-          console.log('Links:', activity.links);
           this.activity = activity;
           this.statusForm.patchValue({ status: activity.status });
         },
@@ -758,8 +771,8 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
     return this.activity?.createdByEmpId || 'Unknown Emp ID';
   }
 
-  getFileIcon(fileName: string): string {
-    const extension = fileName.split('.').pop()?.toLowerCase();
+  getAttachmentIcon(filename: string): string {
+    const extension = filename.split('.').pop()?.toLowerCase();
     switch (extension) {
       case 'pdf':
         return 'picture_as_pdf';
@@ -779,82 +792,44 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
         return 'image';
       case 'txt':
         return 'text_snippet';
-      case 'zip':
-      case 'rar':
-        return 'archive';
       default:
         return 'attachment';
     }
   }
 
-  downloadAttachment(attachment: any) {
-    this.activityService.downloadAttachment(attachment.filename).subscribe({
-      next: (blob: Blob) => {
-        // Create blob link to download
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = attachment.originalName;
-        
-        // Append to html link element page
-        document.body.appendChild(link);
-        
-        // Start download
-        link.click();
-        
-        // Clean up and remove the link
-        link.remove();
-        window.URL.revokeObjectURL(url);
-        
-        this.snackBar.open(`Downloaded ${attachment.originalName}`, 'Close', { duration: 2000 });
-      },
-      error: (error) => {
-        console.error('Download failed:', error);
-        this.snackBar.open('Failed to download file', 'Close', { duration: 3000 });
-      }
-    });
+  downloadAttachment(filename: string, originalName: string) {
+    if (!filename) {
+      this.snackBar.open('Invalid file', 'Close', { duration: 3000 });
+      return;
+    }
+
+    this.subscriptions.push(
+      this.activityService.downloadAttachment(filename).subscribe({
+        next: (blob) => {
+          // Create a download link
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = originalName || filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          
+          this.snackBar.open('Download started', 'Close', { duration: 2000 });
+        },
+        error: (error) => {
+          console.error('Download error:', error);
+          this.snackBar.open('Failed to download file', 'Close', { duration: 3000 });
+        }
+      })
+    );
   }
 
-  copyLink(url: string) {
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(url).then(() => {
-        this.snackBar.open('Link copied to clipboard!', 'Close', { duration: 2000 });
-      }).catch(err => {
-        console.error('Failed to copy link: ', err);
-        this.fallbackCopyTextToClipboard(url);
-      });
-    } else {
-      // Fallback for older browsers or non-secure contexts
-      this.fallbackCopyTextToClipboard(url);
+  openLink(url: string) {
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer');
     }
-  }
-
-  private fallbackCopyTextToClipboard(text: string) {
-    const textArea = document.createElement('textarea');
-    textArea.value = text;
-    
-    // Avoid scrolling to bottom
-    textArea.style.top = '0';
-    textArea.style.left = '0';
-    textArea.style.position = 'fixed';
-    
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    
-    try {
-      const successful = document.execCommand('copy');
-      if (successful) {
-        this.snackBar.open('Link copied to clipboard!', 'Close', { duration: 2000 });
-      } else {
-        this.snackBar.open('Failed to copy link', 'Close', { duration: 3000 });
-      }
-    } catch (err) {
-      console.error('Fallback: Oops, unable to copy', err);
-      this.snackBar.open('Failed to copy link', 'Close', { duration: 3000 });
-    }
-    
-    document.body.removeChild(textArea);
   }
 
   formatDate(dateString: string): string {

@@ -61,6 +61,7 @@ export interface Activity {
   userid:string;
   description: string;
   teamId: string;
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
   assignedMembers?:{
       id: string;
       name: string;
@@ -91,6 +92,7 @@ export interface ActivityLink {
   id: string;
   url: string;
   title?: string;
+  activityId: string;
   createdAt: string;
 }
 

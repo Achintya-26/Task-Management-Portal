@@ -60,12 +60,12 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
           </div>
         </div>
 
-        <div class="header-actions" *ngIf="isAdmin$ | async">
+        <div class="header-actions" *ngIf="canCreateActivity$ | async">
           <button mat-raised-button color="primary" (click)="openCreateActivityDialog()">
             <mat-icon>add</mat-icon>
             Add Activity
           </button>
-          <button mat-button [matMenuTriggerFor]="teamMenu">
+          <button mat-button [matMenuTriggerFor]="teamMenu" *ngIf="isAdmin$ | async">
             <mat-icon>more_vert</mat-icon>
           </button>
           <mat-menu #teamMenu="matMenu">
@@ -175,7 +175,15 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
                   </button>
                   <button 
                     mat-button 
-                    *ngIf="canUpdateActivity(activity)" 
+                    *ngIf="canEditActivity(activity)" 
+                    (click)="openEditActivityDialog(activity); $event.stopPropagation()"
+                  >
+                    <mat-icon>edit</mat-icon>
+                    Edit
+                  </button>
+                  <button 
+                    mat-button 
+                    *ngIf="canUpdateActivitySync(activity)" 
                     [matMenuTriggerFor]="activityMenu"
                     (click)="$event.stopPropagation()"
                   >
@@ -207,7 +215,7 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
                   <p *ngIf="selectedStatus">No activities found with the selected status.</p>
                   <p *ngIf="!selectedStatus">This team doesn't have any activities yet.</p>
                   <button 
-                    *ngIf="(isAdmin$ | async) && !selectedStatus" 
+                    *ngIf="(canCreateActivity$ | async) && !selectedStatus" 
                     mat-raised-button 
                     color="primary" 
                     (click)="openCreateActivityDialog()"
@@ -610,7 +618,9 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
   filteredActivities: Activity[] = [];
   selectedStatus = '';
   isAdmin$: Observable<boolean>;
+  canCreateActivity$: Observable<boolean>;
   currentUser: User | null = null;
+  isAdminUser = false;
   private subscriptions: Subscription[] = [];
   private currentTeamId: string | null = null;
   isLoading = false;
@@ -626,10 +636,18 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
     private snackBar: MatSnackBar
   ) {
     this.isAdmin$ = this.authService.isAdmin();
+    this.canCreateActivity$ = this.isTeamMember();
   }
 
   ngOnInit() {
     this.currentUser = this.authService.getCurrentUser();
+    
+    // Set isAdminUser for synchronous access
+    this.subscriptions.push(
+      this.isAdmin$.subscribe(isAdmin => {
+        this.isAdminUser = isAdmin;
+      })
+    );
     
     this.subscriptions.push(
       this.route.params.subscribe(params => {
@@ -880,6 +898,45 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
     );
   }
 
+  canEditActivity(activity: Activity): boolean {
+    if (!this.currentUser) return false;
+    
+    // Admin can edit any activity, or the creator can edit their own activity
+    return this.isAdminUser || activity.createdBy === this.currentUser.id;
+  }
+
+  canUpdateActivitySync(activity: Activity): boolean {
+    if (!this.currentUser) return false;
+    
+    // Admin can update any activity
+    if (this.isAdminUser) return true;
+    
+    // Handle assignedMembers which might come as array or comma-separated string from DB
+    let assignedIds: string[] = [];
+    if (Array.isArray(activity.assignedMembers)) {
+      assignedIds = activity.assignedMembers.map(m => m.id);
+    } else if (activity.assignedMembers && typeof activity.assignedMembers === 'string') {
+      assignedIds = (activity.assignedMembers as any).split(',').map((id: string) => id.trim());
+    } else if (activity.assignedMembers) {
+      assignedIds = String(activity.assignedMembers).split(',').map((id: string) => id.trim());
+    }
+    
+    return assignedIds.includes(this.currentUser.id);
+  }
+
+  isTeamMember(): Observable<boolean> {
+    return this.isAdmin$.pipe(
+      map(isAdmin => {
+        if (isAdmin) return true;
+        if (!this.currentUser || !this.team) return false;
+        
+        // Check if current user is a member of this team
+        const memberIds = this.team.members?.map(m => m.userId || m.id) || [];
+        return memberIds.includes(this.currentUser.id);
+      })
+    );
+  }
+
   getAttachmentsCount(activity: Activity): number {
     return activity.attachments && Array.isArray(activity.attachments) ? activity.attachments.length : 0;
   }
@@ -931,6 +988,27 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
         teamId: this.team.id,
         teamName: this.team.name,
         members: this.team.members || []
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.loadActivities(this.team!.id); // Reload activities
+      }
+    });
+  }
+
+  openEditActivityDialog(activity: Activity) {
+    if (!this.team) return;
+
+    const dialogRef = this.dialog.open(CreateActivityDialogComponent, {
+      width: '600px',
+      data: {
+        teamId: this.team.id,
+        teamName: this.team.name,
+        members: this.team.members || [],
+        activity: activity, // Pass the activity for editing
+        isEdit: true
       }
     });
 

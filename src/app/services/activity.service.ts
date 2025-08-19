@@ -20,6 +20,7 @@ export class ActivityService {
         attachments: activity.attachments || [],
         links: activity.links || [],
         remarks: activity.remarks || [],
+        priority: activity.priority || 'medium',
         createdAt: activity.created_at || activity.createdAt,
         updatedAt: activity.updated_at || activity.updatedAt,
         targetDate: activity.target_date || activity.targetDate,
@@ -41,6 +42,10 @@ export class ActivityService {
     return this.http.patch(`${this.apiUrl}/${activityId}/status`, { status, remarks });
   }
 
+  updateActivity(activityId: number, activityData: FormData | any): Observable<any> {
+    return this.http.put(`${this.apiUrl}/${activityId}`, activityData);
+  }
+
   addRemarkToActivity(activityId: number, text: string): Observable<any> {
     return this.http.post(`${this.apiUrl}/${activityId}/remarks`, { text });
   }
@@ -60,6 +65,7 @@ export class ActivityService {
         attachments: activity.attachments || [],
         links: activity.links || [],
         remarks: activity.remarks || [],
+        priority: activity.priority || 'medium',
         createdAt: activity.created_at || activity.createdAt,
         updatedAt: activity.updated_at || activity.updatedAt,
         targetDate: activity.target_date || activity.targetDate,

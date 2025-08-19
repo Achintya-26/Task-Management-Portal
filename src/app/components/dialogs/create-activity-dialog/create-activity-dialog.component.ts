@@ -12,10 +12,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatListModule } from '@angular/material/list';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivityService } from '../../../services/activity.service';
 import { TeamService } from '../../../services/team.service';
-import { User } from '../../../models';
+import { User, Activity, Attachment, ActivityLink } from '../../../models';
 
 @Component({
   selector: 'app-create-activity-dialog',
@@ -33,14 +34,15 @@ import { User } from '../../../models';
     MatIconModule,
     MatChipsModule,
     MatListModule,
-    MatProgressBarModule
+    MatProgressBarModule,
+    MatTooltipModule
   ],
   providers: [
     { provide: MAT_DATE_LOCALE, useValue: 'en-US' }
   ],
   template: `
     <div class="create-activity-dialog">
-      <h2 mat-dialog-title>Create New Activity</h2>
+      <h2 mat-dialog-title>{{ isEditMode ? 'Edit Activity' : 'Create New Activity' }}</h2>
       
       <mat-dialog-content>
         <form [formGroup]="activityForm">
@@ -137,7 +139,7 @@ import { User } from '../../../models';
 
             <!-- Selected Files List -->
             <div class="selected-files" *ngIf="selectedFiles.length > 0">
-              <h5>Selected Files ({{ selectedFiles.length }}):</h5>
+              <h5>New Files to Upload ({{ selectedFiles.length }}):</h5>
               <mat-list>
                 <mat-list-item *ngFor="let file of selectedFiles; let i = index">
                   <mat-icon matListItemIcon>{{ getFileIcon(file.name) }}</mat-icon>
@@ -151,6 +153,43 @@ import { User } from '../../../models';
                   >
                     <mat-icon>delete</mat-icon>
                   </button>
+                </mat-list-item>
+              </mat-list>
+            </div>
+
+            <!-- Existing Attachments (Edit Mode) -->
+            <div class="existing-attachments" *ngIf="isEditMode && existingAttachments.length > 0">
+              <h5>Current Attachments ({{ getActiveAttachments().length }}):</h5>
+              <mat-list>
+                <mat-list-item *ngFor="let attachment of existingAttachments">
+                  <mat-icon matListItemIcon [class.deleted]="isAttachmentMarkedForDeletion(attachment.id)">
+                    {{ getFileIcon(attachment.originalName) }}
+                  </mat-icon>
+                  <div matListItemTitle [class.deleted]="isAttachmentMarkedForDeletion(attachment.id)">
+                    {{ attachment.originalName }}
+                  </div>
+                  <div matListItemLine [class.deleted]="isAttachmentMarkedForDeletion(attachment.id)">
+                    {{ formatFileSize(attachment.fileSize) }} • Uploaded {{ formatDate(attachment.uploadedAt) }}
+                  </div>
+                  <div matListItemMeta class="attachment-actions">
+                    <button 
+                      mat-icon-button 
+                      color="primary" 
+                      (click)="downloadExistingAttachment(attachment)"
+                      [disabled]="isAttachmentMarkedForDeletion(attachment.id)"
+                      matTooltip="Download"
+                    >
+                      <mat-icon>download</mat-icon>
+                    </button>
+                    <button 
+                      mat-icon-button 
+                      [color]="isAttachmentMarkedForDeletion(attachment.id) ? 'accent' : 'warn'"
+                      (click)="toggleAttachmentDeletion(attachment.id)"
+                      [matTooltip]="isAttachmentMarkedForDeletion(attachment.id) ? 'Restore' : 'Mark for deletion'"
+                    >
+                      <mat-icon>{{ isAttachmentMarkedForDeletion(attachment.id) ? 'restore' : 'delete' }}</mat-icon>
+                    </button>
+                  </div>
                 </mat-list-item>
               </mat-list>
             </div>
@@ -178,7 +217,7 @@ import { User } from '../../../models';
 
               <!-- Selected Links -->
               <div class="selected-links" *ngIf="selectedLinks.length > 0">
-                <h5>Related Links:</h5>
+                <h5>New Links to Add:</h5>
                 <mat-chip-listbox>
                   <mat-chip 
                     *ngFor="let link of selectedLinks; let i = index"
@@ -187,6 +226,42 @@ import { User } from '../../../models';
                     <mat-icon matChipAvatar>link</mat-icon>
                     {{ link }}
                     <mat-icon matChipRemove>cancel</mat-icon>
+                  </mat-chip>
+                </mat-chip-listbox>
+              </div>
+
+              <!-- Existing Links (Edit Mode) -->
+              <div class="existing-links" *ngIf="isEditMode && existingLinks.length > 0">
+                <h5>Current Links ({{ getActiveLinks().length }}):</h5>
+                <mat-chip-listbox>
+                  <mat-chip 
+                    *ngFor="let link of existingLinks"
+                    [class.deleted]="isLinkMarkedForDeletion(link.id)"
+                    [disabled]="isLinkMarkedForDeletion(link.id)"
+                  >
+                    <mat-icon matChipAvatar>link</mat-icon>
+                    <span [class.deleted]="isLinkMarkedForDeletion(link.id)">{{ link.url }}</span>
+                    <div class="link-actions">
+                      <button 
+                        mat-icon-button 
+                        size="small"
+                        color="primary" 
+                        (click)="openLink(link.url); $event.stopPropagation()"
+                        [disabled]="isLinkMarkedForDeletion(link.id)"
+                        matTooltip="Open link"
+                      >
+                        <mat-icon>open_in_new</mat-icon>
+                      </button>
+                      <button 
+                        mat-icon-button 
+                        size="small"
+                        [color]="isLinkMarkedForDeletion(link.id) ? 'accent' : 'warn'"
+                        (click)="toggleLinkDeletion(link.id); $event.stopPropagation()"
+                        [matTooltip]="isLinkMarkedForDeletion(link.id) ? 'Restore' : 'Mark for deletion'"
+                      >
+                        <mat-icon>{{ isLinkMarkedForDeletion(link.id) ? 'restore' : 'delete' }}</mat-icon>
+                      </button>
+                    </div>
                   </mat-chip>
                 </mat-chip-listbox>
               </div>
@@ -200,10 +275,10 @@ import { User } from '../../../models';
         <button 
           mat-raised-button 
           color="primary" 
-          (click)="onCreateActivity()"
+          (click)="onSubmit()"
           [disabled]="!activityForm.valid || isLoading"
         >
-          {{ isLoading ? 'Creating...' : 'Create Activity' }}
+          {{ isLoading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Activity' : 'Create Activity') }}
         </button>
       </mat-dialog-actions>
     </div>
@@ -300,6 +375,42 @@ import { User } from '../../../models';
     .selected-links mat-chip {
       max-width: 300px;
     }
+
+    .existing-attachments, .existing-links {
+      margin-top: 16px;
+    }
+
+    .existing-attachments h5, .existing-links h5 {
+      margin-bottom: 8px;
+      color: #666;
+      font-weight: 500;
+    }
+
+    .attachment-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .link-actions {
+      display: flex;
+      gap: 4px;
+      margin-left: 8px;
+    }
+
+    .deleted {
+      opacity: 0.5;
+      text-decoration: line-through;
+    }
+
+    mat-chip.deleted {
+      opacity: 0.6;
+      background-color: #ffebee !important;
+    }
+
+    mat-list-item .deleted {
+      opacity: 0.5;
+      text-decoration: line-through;
+    }
   `]
 })
 export class CreateActivityDialogComponent implements OnInit {
@@ -308,7 +419,12 @@ export class CreateActivityDialogComponent implements OnInit {
   selectedMembers: User[] = [];
   selectedFiles: File[] = [];
   selectedLinks: string[] = [];
+  existingAttachments: Attachment[] = [];
+  existingLinks: ActivityLink[] = [];
+  attachmentsToDelete: number[] = [];
+  linksToDelete: number[] = [];
   isLoading = false;
+  isEditMode = false;
 
   constructor(
     private fb: FormBuilder,
@@ -316,9 +432,17 @@ export class CreateActivityDialogComponent implements OnInit {
     private teamService: TeamService,
     private snackBar: MatSnackBar,
     private dialogRef: MatDialogRef<CreateActivityDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: { teamId: string; teamName: string; members: User[] }
+    @Inject(MAT_DIALOG_DATA) public data: { 
+      teamId: string; 
+      teamName: string; 
+      members: User[];
+      activity?: Activity;
+      isEdit?: boolean;
+    }
   ) {
     this.teamMembers = data.members || [];
+    this.isEditMode = data.isEdit || false;
+    
     this.activityForm = this.fb.group({
       name: ['', Validators.required],
       description: [''],
@@ -326,6 +450,11 @@ export class CreateActivityDialogComponent implements OnInit {
       targetDate: [null],
       assignedUsers: [[]]
     });
+
+    // If editing, populate form with existing data
+    if (this.isEditMode && data.activity) {
+      this.populateFormForEdit(data.activity);
+    }
   }
 
   ngOnInit() {
@@ -431,6 +560,152 @@ export class CreateActivityDialogComponent implements OnInit {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  formatDate(dateString: string): string {
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // Methods for handling existing attachments
+  getActiveAttachments(): Attachment[] {
+    return this.existingAttachments.filter(att => !this.isAttachmentMarkedForDeletion(att.id));
+  }
+
+  isAttachmentMarkedForDeletion(attachmentId: string): boolean {
+    return this.attachmentsToDelete.includes(parseInt(attachmentId));
+  }
+
+  toggleAttachmentDeletion(attachmentId: string): void {
+    const id = parseInt(attachmentId);
+    const index = this.attachmentsToDelete.indexOf(id);
+    if (index > -1) {
+      this.attachmentsToDelete.splice(index, 1);
+    } else {
+      this.attachmentsToDelete.push(id);
+    }
+  }
+
+  downloadExistingAttachment(attachment: Attachment): void {
+    this.activityService.downloadAttachment(attachment.filename).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = attachment.originalName;
+        link.click();
+        window.URL.revokeObjectURL(url);
+      },
+      error: (error) => {
+        console.error('Download failed:', error);
+        this.snackBar.open('Failed to download attachment', 'Close', { duration: 3000 });
+      }
+    });
+  }
+
+  // Methods for handling existing links
+  getActiveLinks(): ActivityLink[] {
+    return this.existingLinks.filter(link => !this.isLinkMarkedForDeletion(link.id));
+  }
+
+  isLinkMarkedForDeletion(linkId: string): boolean {
+    return this.linksToDelete.includes(parseInt(linkId));
+  }
+
+  toggleLinkDeletion(linkId: string): void {
+    const id = parseInt(linkId);
+    const index = this.linksToDelete.indexOf(id);
+    if (index > -1) {
+      this.linksToDelete.splice(index, 1);
+    } else {
+      this.linksToDelete.push(id);
+    }
+  }
+
+  openLink(url: string): void {
+    window.open(url, '_blank');
+  }
+
+  populateFormForEdit(activity: Activity) {
+    this.activityForm.patchValue({
+      name: activity.name,
+      description: activity.description,
+      priority: activity.priority || 'medium',
+      targetDate: activity.targetDate ? new Date(activity.targetDate) : null,
+      assignedUsers: activity.assignedMembers?.map(m => m.id) || []
+    });
+
+    // Populate existing attachments and links
+    this.existingAttachments = activity.attachments || [];
+    this.existingLinks = activity.links || [];
+    
+    // Note: New files will be added to selectedFiles when user selects them
+    // New links will be added to selectedLinks when user adds them
+  }
+
+  onSubmit() {
+    if (this.isEditMode) {
+      this.onUpdateActivity();
+    } else {
+      this.onCreateActivity();
+    }
+  }
+
+  async onUpdateActivity() {
+    if (this.activityForm.valid && this.data.activity) {
+      this.isLoading = true;
+      
+      try {
+        const formValue = this.activityForm.value;
+        
+        // Create FormData for file upload
+        const formData = new FormData();
+        
+        // Add basic activity data
+        formData.append('name', formValue.name);
+        formData.append('description', formValue.description || '');
+        formData.append('priority', formValue.priority);
+        
+        if (formValue.targetDate) {
+          formData.append('targetDate', new Date(formValue.targetDate).toISOString());
+        }
+        
+        // Add assigned users as JSON string
+        if (formValue.assignedUsers && formValue.assignedUsers.length > 0) {
+          formData.append('assignedUsers', JSON.stringify(formValue.assignedUsers));
+        }
+        
+        // Add files (only new ones)
+        this.selectedFiles.forEach((file, index) => {
+          formData.append('attachments', file);
+        });
+        
+        // Add links as JSON string (only new ones)
+        if (this.selectedLinks.length > 0) {
+          formData.append('newLinks', JSON.stringify(this.selectedLinks));
+        }
+
+        // Add deletions data
+        if (this.attachmentsToDelete.length > 0) {
+          formData.append('attachmentsToDelete', JSON.stringify(this.attachmentsToDelete));
+        }
+
+        if (this.linksToDelete.length > 0) {
+          formData.append('linksToDelete', JSON.stringify(this.linksToDelete));
+        }
+
+        // Use the update activity service method
+        await this.activityService.updateActivity(parseInt(this.data.activity.id), formData).toPromise();
+        
+        this.snackBar.open('Activity updated successfully', 'Close', { duration: 3000 });
+        this.dialogRef.close(true);
+      } catch (error) {
+        console.error('Error updating activity:', error);
+        this.snackBar.open('Error updating activity', 'Close', { duration: 3000 });
+      } finally {
+        this.isLoading = false;
+      }
+    }
   }
 
   async onCreateActivity() {
