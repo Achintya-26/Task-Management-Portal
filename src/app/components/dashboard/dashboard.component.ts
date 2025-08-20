@@ -528,24 +528,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   setupSocketListeners() {
-    this.socketService.connect();
+    // Disabled Socket.IO - using WebSocket notifications instead
+    // this.socketService.connect();
     
     // Join all user teams for real-time updates
-    this.teams.forEach(team => {
-      this.socketService.joinTeam(team.id);
-    });
+    // this.teams.forEach(team => {
+    //   this.socketService.joinTeam(team.id);
+    // });
 
-    // Listen for real-time updates
-    this.subscriptions.push(
-      this.socketService.onActivityCreated().subscribe(() => {
-        this.loadDashboardData();
-      }),
-      this.socketService.onActivityUpdated().subscribe(() => {
-        this.loadDashboardData();
-      }),
-      this.socketService.onTeamUpdated().subscribe(() => {
-        this.loadDashboardData();
-      })
-    );
+    // Listen for real-time updates - now handled by NotificationService WebSocket
+    // this.subscriptions.push(
+    //   this.socketService.onActivityCreated().subscribe(() => {
+    //     this.loadDashboardData();
+    //   }),
+    //   this.socketService.onActivityUpdated().subscribe(() => {
+    //     this.loadDashboardData();
+    //   }),
+    //   this.socketService.onTeamUpdated().subscribe(() => {
+    //     this.loadDashboardData();
+    //   })
+    // );
   }
 }

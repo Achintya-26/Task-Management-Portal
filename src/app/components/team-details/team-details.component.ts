@@ -675,10 +675,10 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    // Leave current team room if any
-    if (this.currentTeamId) {
-      this.socketService.leaveTeam(this.currentTeamId);
-    }
+    // Leave current team room if any - disabled, using WebSocket now
+    // if (this.currentTeamId) {
+    //   this.socketService.leaveTeam(this.currentTeamId);
+    // }
     
     // Unsubscribe from all subscriptions
     this.subscriptions.forEach(sub => {
@@ -744,30 +744,30 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
   }
 
   setupSocketListeners(teamId: string) {
-    // Leave previous team room if any
-    if (this.currentTeamId && this.currentTeamId !== teamId) {
-      this.socketService.leaveTeam(this.currentTeamId);
-    }
+    // Leave previous team room if any - disabled, using WebSocket now
+    // if (this.currentTeamId && this.currentTeamId !== teamId) {
+    //   this.socketService.leaveTeam(this.currentTeamId);
+    // }
     
-    // Join new team room
+    // Join new team room - disabled, using WebSocket notifications now
     this.currentTeamId = teamId;
-    this.socketService.joinTeam(teamId);
+    // this.socketService.joinTeam(teamId);
     
-    // Set up listeners (only once per team)
-    this.subscriptions.push(
-      this.socketService.onActivityCreated().subscribe(() => {
-        console.log('Activity created event received');
-        this.loadActivities(teamId);
-      }),
-      this.socketService.onActivityUpdated().subscribe(() => {
-        console.log('Activity updated event received');
-        this.loadActivities(teamId);
-      }),
-      this.socketService.onTeamUpdated().subscribe(() => {
-        console.log('Team updated event received');
-        this.loadTeamDetails(teamId);
-      })
-    );
+    // Set up listeners (only once per team) - now handled by NotificationService
+    // this.subscriptions.push(
+    //   this.socketService.onActivityCreated().subscribe(() => {
+    //     console.log('Activity created event received');
+    //     this.loadActivities(teamId);
+    //   }),
+    //   this.socketService.onActivityUpdated().subscribe(() => {
+    //     console.log('Activity updated event received');
+    //     this.loadActivities(teamId);
+    //   }),
+    //   this.socketService.onTeamUpdated().subscribe(() => {
+    //     console.log('Team updated event received');
+    //     this.loadTeamDetails(teamId);
+    //   })
+    // );
   }
 
   filterActivities() {

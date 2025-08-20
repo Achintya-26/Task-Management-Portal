@@ -9,7 +9,7 @@ import { MatBadgeModule } from '@angular/material/badge';
 import { MatDividerModule } from '@angular/material/divider';
 import { AuthService } from '../../../services/auth.service';
 import { NotificationService } from '../../../services/notification.service';
-import { SocketService } from '../../../services/socket.service';
+import { NotificationsComponent } from '../../notifications/notifications.component';
 import { Observable, of, Subscription } from 'rxjs';
 
 @Component({
@@ -23,7 +23,8 @@ import { Observable, of, Subscription } from 'rxjs';
     MatIconModule,
     MatMenuModule,
     MatBadgeModule,
-    MatDividerModule
+    MatDividerModule,
+    NotificationsComponent
   ],
   template: `
     <mat-toolbar color="primary" class="navbar">
@@ -51,11 +52,7 @@ import { Observable, of, Subscription } from 'rxjs';
         </div>
         
         <div class="navbar-right">
-          <button mat-icon-button [matMenuTriggerFor]="notificationMenu" class="notification-button">
-            <mat-icon [matBadge]="unreadCount" matBadgeColor="warn" [matBadgeHidden]="unreadCount === 0">
-              notifications
-            </mat-icon>
-          </button>
+          <app-notifications></app-notifications>
           
           <button mat-button [matMenuTriggerFor]="userMenu" class="user-button">
             <mat-icon>account_circle</mat-icon>
@@ -65,31 +62,6 @@ import { Observable, of, Subscription } from 'rxjs';
         </div>
       </div>
     </mat-toolbar>
-
-    <!-- Notification Menu -->
-    <mat-menu #notificationMenu="matMenu" class="notification-menu">
-      <div class="notification-header">
-        <h3>Notifications</h3>
-        <button mat-button (click)="markAllAsRead()" *ngIf="unreadCount > 0">
-          Mark all as read
-        </button>
-      </div>
-      <div class="notification-list">
-        <div *ngFor="let notification of notifications?.slice(0, 5)" 
-             class="notification-item" 
-             [class.unread]="!notification.read"
-             (click)="markAsRead(notification.id)">
-          <div class="notification-content">
-            <h4>{{ notification.title }}</h4>
-            <p>{{ notification.message }}</p>
-            <span class="notification-time">{{ formatTime(notification.createdAt) }}</span>
-          </div>
-        </div>
-        <div *ngIf="!notifications || notifications.length === 0" class="no-notifications">
-          No notifications
-        </div>
-      </div>
-    </mat-menu>
 
     <!-- User Menu -->
     <mat-menu #userMenu="matMenu">
@@ -250,7 +222,6 @@ export class NavbarComponent implements OnInit, OnDestroy {
   constructor(
     public authService: AuthService,
     private notificationService: NotificationService,
-    private socketService: SocketService,
     private router: Router
   ) {}
 
@@ -267,14 +238,10 @@ export class NavbarComponent implements OnInit, OnDestroy {
         this.currentUser = user;
       })
     );
-
-    // Connect to socket for real-time notifications
-    this.socketService.connect();
   }
 
   ngOnDestroy() {
     this.subscriptions.forEach(sub => sub.unsubscribe());
-    this.socketService.disconnect();
   }
 
   loadNotifications() {
