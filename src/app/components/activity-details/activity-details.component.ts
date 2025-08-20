@@ -9,11 +9,14 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { ActivityService } from '../../services/activity.service';
 import { AuthService } from '../../services/auth.service';
+import { TeamService } from '../../services/team.service';
 import { Activity, User, Remark } from '../../models';
+import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog/create-activity-dialog.component';
 import { Subscription, Observable, combineLatest } from 'rxjs';
 import { map } from 'rxjs/operators';
 
@@ -53,9 +56,33 @@ import { map } from 'rxjs/operators';
     <div class="activity-details-container" *ngIf="activity && !error">
       <!-- Header -->
       <div class="activity-header">
-        <button mat-icon-button (click)="goBack()" class="back-button">
-          <mat-icon>arrow_back</mat-icon>
-        </button>
+        <div class="header-actions">
+          <button mat-icon-button (click)="goBack()" class="back-button">
+            <mat-icon>arrow_back</mat-icon>
+          </button>
+          
+          <!-- Activity Actions for Creator/Admin -->
+          <div class="activity-actions" *ngIf="canEditActivity()">
+            <button 
+              mat-raised-button 
+              color="primary" 
+              (click)="editActivity()"
+              matTooltip="Edit Activity"
+            >
+              <mat-icon>edit</mat-icon>
+              Edit
+            </button>
+            <button 
+              mat-raised-button 
+              color="warn" 
+              (click)="deleteActivity()"
+              matTooltip="Delete Activity"
+            >
+              <mat-icon>delete</mat-icon>
+              Delete
+            </button>
+          </div>
+        </div>
         
         <div class="header-content">
           <div class="activity-info">
@@ -353,7 +380,7 @@ import { map } from 'rxjs/operators';
 
     .activity-header {
       display: flex;
-      align-items: flex-start;
+      flex-direction: column;
       gap: 16px;
       margin-bottom: 32px;
       padding: 24px;
@@ -362,8 +389,23 @@ import { map } from 'rxjs/operators';
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
 
+    .header-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .activity-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .activity-actions button {
+      min-width: 100px;
+    }
+
     .back-button {
-      margin-top: 8px;
+      margin-right: auto;
     }
 
     .header-content {
@@ -756,6 +798,8 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private activityService: ActivityService,
     private authService: AuthService,
+    private teamService: TeamService,
+    private dialog: MatDialog,
     private snackBar: MatSnackBar
   ) {
     this.remarkForm = this.fb.group({
@@ -1035,6 +1079,70 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
         },
         error: (error) => {
           this.snackBar.open('Failed to delete remark', 'Close', { duration: 3000 });
+        }
+      })
+    );
+  }
+
+  canEditActivity(): boolean {
+    if (!this.currentUser || !this.activity) return false;
+    
+    // Admin can edit all activities, creator can edit their own activities
+    return this.currentUser.role === 'admin' || this.activity.createdBy === this.currentUser.id;
+  }
+
+  editActivity() {
+    if (!this.activity || !this.canEditActivity()) return;
+
+    // First get team data
+    this.subscriptions.push(
+      this.teamService.getTeamById(this.activity.teamId).subscribe({
+        next: (team) => {
+          const dialogRef = this.dialog.open(CreateActivityDialogComponent, {
+            width: '600px',
+            data: {
+              teamId: this.activity!.teamId,
+              teamName: team.name,
+              members: team.members || [],
+              activity: this.activity,
+              isEdit: true
+            }
+          });
+
+          dialogRef.afterClosed().subscribe(result => {
+            if (result) {
+              this.snackBar.open('Activity updated successfully', 'Close', { duration: 3000 });
+              // Reload the activity details
+              this.loadActivityDetails(parseInt(this.activity!.id));
+            }
+          });
+        },
+        error: (error) => {
+          console.error('Failed to load team data for editing:', error);
+          this.snackBar.open('Failed to load team data', 'Close', { duration: 3000 });
+        }
+      })
+    );
+  }
+
+  deleteActivity() {
+    if (!this.activity || !this.canEditActivity()) return;
+
+    const confirmMessage = `Are you sure you want to delete the activity "${this.activity.name}"? This action cannot be undone.`;
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    this.subscriptions.push(
+      this.activityService.deleteActivity(parseInt(this.activity.id)).subscribe({
+        next: (response) => {
+          this.snackBar.open('Activity deleted successfully', 'Close', { duration: 3000 });
+          this.router.navigate(['/dashboard']);
+        },
+        error: (error) => {
+          console.error('Failed to delete activity:', error);
+          this.snackBar.open('Failed to delete activity', 'Close', { duration: 3000 });
         }
       })
     );

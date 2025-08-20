@@ -58,6 +58,10 @@ export class ActivityService {
     return this.http.delete(`${this.apiUrl}/remarks/${remarkId}`);
   }
 
+  deleteActivity(activityId: number): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/${activityId}`);
+  }
+
   downloadAttachment(attachmentName: string): Observable<Blob> {
     return this.http.get(`${this.apiUrl}/files/${attachmentName}`, { 
       responseType: 'blob',

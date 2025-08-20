@@ -15,6 +15,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivityService } from '../../../services/activity.service';
+import { AuthService } from '../../../services/auth.service';
 import { TeamService } from '../../../services/team.service';
 import { User, Activity, Attachment, ActivityLink } from '../../../models';
 
@@ -89,11 +90,11 @@ import { User, Activity, Attachment, ActivityLink } from '../../../models';
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Assign Members</mat-label>
             <mat-select multiple formControlName="assignedUsers">
-              <mat-option *ngFor="let member of teamMembers" [value]="member.id">
+              <mat-option *ngFor="let member of getSelectableMembers()" [value]="member.id">
                 {{ member.name }} ({{ member.empId }})
               </mat-option>
             </mat-select>
-            <mat-hint>Select team members to assign to this activity</mat-hint>
+            <mat-hint>Select team members to assign to this activity (you are assigned by default)</mat-hint>
           </mat-form-field>
 
           <!-- Show assigned members -->
@@ -429,6 +430,7 @@ export class CreateActivityDialogComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     private activityService: ActivityService,
+    private authService: AuthService,
     private teamService: TeamService,
     private snackBar: MatSnackBar,
     private dialogRef: MatDialogRef<CreateActivityDialogComponent>,
@@ -443,12 +445,13 @@ export class CreateActivityDialogComponent implements OnInit {
     this.teamMembers = data.members || [];
     this.isEditMode = data.isEdit || false;
     
+    // Initialize form without auto-adding current user (backend will handle this)
     this.activityForm = this.fb.group({
       name: ['', Validators.required],
       description: [''],
       priority: ['medium'],
       targetDate: [null],
-      assignedUsers: [[]]
+      assignedUsers: [[]]  // Empty array - current user will be added automatically by backend
     });
 
     // If editing, populate form with existing data
@@ -463,10 +466,18 @@ export class CreateActivityDialogComponent implements OnInit {
 
   setupFormSubscriptions() {
     this.activityForm.get('assignedUsers')?.valueChanges.subscribe(selectedIds => {
-      this.selectedMembers = this.teamMembers.filter(member => 
+      this.selectedMembers = this.getSelectableMembers().filter(member => 
         selectedIds.includes(member.id)
       );
     });
+  }
+
+  getSelectableMembers(): User[] {
+    const currentUser = this.authService.getCurrentUser();
+    if (!currentUser) return this.teamMembers;
+    
+    // Filter out the current user from the dropdown since they're auto-assigned
+    return this.teamMembers.filter(member => member.id !== currentUser.id);
   }
 
   removeAssignedMember(memberId: string) {
@@ -627,12 +638,20 @@ export class CreateActivityDialogComponent implements OnInit {
   }
 
   populateFormForEdit(activity: Activity) {
+    const currentUser = this.authService.getCurrentUser();
+    
+    // Filter out current user from assigned users since they're automatically included
+    let assignedUserIds = activity.assignedMembers?.map(m => m.id) || [];
+    if (currentUser) {
+      assignedUserIds = assignedUserIds.filter(id => id !== currentUser.id);
+    }
+    
     this.activityForm.patchValue({
       name: activity.name,
       description: activity.description,
       priority: activity.priority || 'medium',
       targetDate: activity.targetDate ? new Date(activity.targetDate) : null,
-      assignedUsers: activity.assignedMembers?.map(m => m.id) || []
+      assignedUsers: assignedUserIds
     });
 
     // Populate existing attachments and links

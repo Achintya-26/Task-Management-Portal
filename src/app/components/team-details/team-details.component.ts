@@ -183,6 +183,15 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
                   </button>
                   <button 
                     mat-button 
+                    color="warn"
+                    *ngIf="canEditActivity(activity)" 
+                    (click)="deleteActivity(activity); $event.stopPropagation()"
+                  >
+                    <mat-icon>delete</mat-icon>
+                    Delete
+                  </button>
+                  <button 
+                    mat-button 
                     *ngIf="canUpdateActivitySync(activity)" 
                     [matMenuTriggerFor]="activityMenu"
                     (click)="$event.stopPropagation()"
@@ -903,6 +912,30 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
     
     // Admin can edit any activity, or the creator can edit their own activity
     return this.isAdminUser || activity.createdBy === this.currentUser.id;
+  }
+
+  deleteActivity(activity: Activity) {
+    if (!this.canEditActivity(activity)) return;
+
+    const confirmMessage = `Are you sure you want to delete the activity "${activity.name}"? This action cannot be undone.`;
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    this.subscriptions.push(
+      this.activityService.deleteActivity(parseInt(activity.id)).subscribe({
+        next: (response: any) => {
+          this.snackBar.open('Activity deleted successfully', 'Close', { duration: 3000 });
+          // Refresh the activities list
+          this.loadActivities(this.team!.id);
+        },
+        error: (error: any) => {
+          console.error('Failed to delete activity:', error);
+          this.snackBar.open('Failed to delete activity', 'Close', { duration: 3000 });
+        }
+      })
+    );
   }
 
   canUpdateActivitySync(activity: Activity): boolean {
