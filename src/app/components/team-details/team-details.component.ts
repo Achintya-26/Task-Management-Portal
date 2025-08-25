@@ -73,10 +73,10 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
               <mat-icon>person_add</mat-icon>
               <span>Add Members</span>
             </button>
-            <button mat-menu-item (click)="openEditTeamDialog()">
+            <!-- <button mat-menu-item (click)="openEditTeamDialog()">
               <mat-icon>edit</mat-icon>
               <span>Edit Team</span>
-            </button>
+            </button> -->
           </mat-menu>
         </div>
       </div>
@@ -263,7 +263,7 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
                     <div class="member-details">
                       <h3>{{ member.name }}</h3>
                       <p class="member-id">{{ member.empId }}</p>
-                      <p class="member-joined">Joined {{ formatDate(member.addedAt) }}</p>
+                      <!-- <p class="member-joined">Joined {{ formatDate(member.addedAt) }}</p> -->
                     </div>
                   </div>
                   <div class="member-stats">
@@ -281,7 +281,7 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
                   <button 
                     mat-button 
                     color="warn" 
-                    (click)="removeMember(member.userId)"
+                    (click)="removeMember(member.id)"
                   >
                     Remove
                   </button>

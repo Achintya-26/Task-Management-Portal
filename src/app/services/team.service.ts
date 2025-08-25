@@ -30,4 +30,8 @@ export class TeamService {
   removeMemberFromTeam(teamId: string, userId: string): Observable<any> {
     return this.http.delete(`${this.apiUrl}/${teamId}/members/${userId}`);
   }
+
+  deleteTeam(teamId: string): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/${teamId}`);
+  }
 }

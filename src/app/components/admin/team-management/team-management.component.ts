@@ -152,6 +152,10 @@ import { Subscription } from 'rxjs';
               <button mat-button (click)="viewTeam(team.id)">
                 View Details
               </button>
+              <button mat-button color="warn" (click)="deleteTeam(team)" [disabled]="isLoading">
+                <mat-icon>delete</mat-icon>
+                Delete
+              </button>
             </mat-card-actions>
           </mat-card>
         </div>
@@ -253,6 +257,26 @@ import { Subscription } from 'rxjs';
       font-size: 16px;
       height: 16px;
       width: 16px;
+    }
+
+    mat-card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    mat-card-actions button[color="warn"] {
+      color: #f44336;
+    }
+
+    mat-card-actions button[color="warn"]:hover {
+      background-color: rgba(244, 67, 54, 0.04);
+    }
+
+    mat-card-actions button[color="warn"] mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
     }
 
     .empty-state {
@@ -421,5 +445,35 @@ export class TeamManagementComponent implements OnInit, OnDestroy {
   viewTeam(teamId: string) {
     // This would navigate to team details - for now just show message
     this.snackBar.open('Navigate to team details', 'Close', { duration: 3000 });
+  }
+
+  deleteTeam(team: Team) {
+    // Simple confirmation dialog
+    const confirmMessage = `Are you sure you want to delete the team "${team.name}"? This action cannot be undone and will remove all team data including members and associated activities.`;
+    
+    if (confirm(confirmMessage)) {
+      this.performDeleteTeam(team.id);
+    }
+  }
+
+  private performDeleteTeam(teamId: string) {
+    this.isLoading = true;
+    this.subscriptions.push(
+      this.teamService.deleteTeam(teamId).subscribe({
+        next: () => {
+          this.isLoading = false;
+          this.snackBar.open('Team deleted successfully', 'Close', { duration: 3000 });
+          this.loadData(); // Reload the teams list
+        },
+        error: (error) => {
+          this.isLoading = false;
+          this.snackBar.open(
+            error.error?.message || 'Failed to delete team',
+            'Close',
+            { duration: 5000 }
+          );
+        }
+      })
+    );
   }
 }
