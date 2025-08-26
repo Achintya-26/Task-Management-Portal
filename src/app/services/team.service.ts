@@ -15,6 +15,12 @@ export class TeamService {
     return this.http.get<Team[]>(this.apiUrl);
   }
 
+  getUserTeams(): Observable<Team[]> {
+    // This now uses the same endpoint as getTeams() since the backend
+    // handles role-based filtering automatically
+    return this.http.get<Team[]>(this.apiUrl);
+  }
+
   createTeam(teamData: { name: string; description: string; domainId: string; initialMembers?: string[] }): Observable<any> {
     return this.http.post(this.apiUrl, teamData);
   }

@@ -179,217 +179,414 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
 
       <!-- Enhanced Content Tabs -->
       <mat-tab-group class="content-tabs" animationDuration="300ms" (selectedTabChange)="onTabChange($event)">
-        <!-- Activities Tab -->
+        <!-- My Activities Tab -->
+        <mat-tab>
+          <ng-template mat-tab-label>
+            <mat-icon class="tab-icon">person</mat-icon>
+            My Activities
+            <mat-chip class="tab-badge">{{ myActivities.length }}</mat-chip>
+          </ng-template>
+          
+          <div class="tab-content my-activities-tab">
+            <div class="content-header">
+              <div class="header-title">
+                <h2>
+                  <mat-icon class="section-icon">person</mat-icon>
+                  Activities assigned to you in this team
+                </h2>
+                <!-- <p></p> -->
+              </div>
+                
+                <div class="activity-filters">
+                  <button 
+                    mat-chip-listbox 
+                    [class.selected]="mySelectedStatus === ''"
+                    (click)="setMyStatusFilter('')"
+                    matRipple
+                  >
+                    <mat-icon>view_list</mat-icon>
+                    All ({{ getMyActivitiesByStatus('all').length }})
+                  </button>
+                  <button 
+                    mat-chip-listbox
+                    [class.selected]="mySelectedStatus === 'pending'"
+                    (click)="setMyStatusFilter('pending')"
+                    matRipple
+                  >
+                    <mat-icon>schedule</mat-icon>
+                    Pending ({{ getMyPendingCount() }})
+                  </button>
+                  <button 
+                    mat-chip-listbox
+                    [class.selected]="mySelectedStatus === 'in-progress'"
+                    (click)="setMyStatusFilter('in-progress')"
+                    matRipple
+                  >
+                    <mat-icon>play_circle</mat-icon>
+                    In Progress ({{ getMyInProgressCount() }})
+                  </button>
+                  <button 
+                    mat-chip-listbox
+                    [class.selected]="mySelectedStatus === 'completed'"
+                    (click)="setMyStatusFilter('completed')"
+                    matRipple
+                  >
+                    <mat-icon>check_circle</mat-icon>
+                    Completed ({{ getMyCompletedCount() }})
+                  </button>
+                  <button 
+                    mat-chip-listbox
+                    [class.selected]="mySelectedStatus === 'on-hold'"
+                    (click)="setMyStatusFilter('on-hold')"
+                    matRipple
+                  >
+                    <mat-icon>pause_circle</mat-icon>
+                    On Hold ({{ getMyOnHoldCount() }})
+                  </button>
+                </div>
+              </div>
+
+              <div class="activities-grid" *ngIf="myActivities.length > 0; else noMyActivities">
+                <mat-card 
+                  *ngFor="let activity of myActivities; trackBy: trackByActivityId" 
+                  class="activity-card enhanced my-activity"
+                  [routerLink]="['/activities', activity.id]"
+                  matRipple
+                >
+                  <div class="activity-header">
+                    <div class="activity-status-indicator" [class]="'status-' + activity.status"></div>
+                    <!-- <mat-chip class="my-activity-badge">Mine</mat-chip> -->
+                  </div>
+                  
+                  <mat-card-content>
+                    <div class="activity-title-section">
+                      <h3>{{ activity.name }}</h3>
+                      <mat-chip class="status-chip" [class]="'status-' + activity.status">
+                        {{ getStatusLabel(activity.status) }}
+                      </mat-chip>
+                    </div>
+                    
+                    <p class="activity-description">{{ activity.description }}</p>
+                    
+                    <div class="activity-metadata">
+                      <div class="metadata-row">
+                        <div class="metadata-item">
+                          <mat-icon class="small-icon">people</mat-icon>
+                          <span>{{ getAssignedMembersText(activity.assignedMembers) }}</span>
+                        </div>
+                        <div class="metadata-item">
+                          <mat-icon class="small-icon">schedule</mat-icon>
+                          <span class="due-date" [class]="getDueDateClass(activity.targetDate)">
+                            {{ formatDueDate(activity.targetDate) }}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div class="metadata-row">
+                        <div class="metadata-item">
+                          <mat-icon class="small-icon">attachment</mat-icon>
+                          <span>{{ getAttachmentsCount(activity) }} attachments</span>
+                        </div>
+                        <div class="metadata-item">
+                          <mat-icon class="small-icon">comment</mat-icon>
+                          <span>{{ getRemarksCount(activity) }} remarks</span>
+                        </div>
+                      </div>
+                    </div>
+                  </mat-card-content>
+
+                  <mat-divider></mat-divider>
+
+                  <mat-card-actions>
+                    <button mat-button color="primary" [routerLink]="['/activities', activity.id]" 
+                            (click)="$event.stopPropagation()">
+                      <mat-icon>visibility</mat-icon>
+                      View
+                    </button>
+                    <button 
+                      mat-button 
+                      *ngIf="canEditActivity(activity)" 
+                      (click)="openEditActivityDialog(activity); $event.stopPropagation()"
+                      matTooltip="Edit activity"
+                    >
+                      <mat-icon>edit</mat-icon>
+                      Edit
+                    </button>
+                    <button 
+                      mat-button 
+                      color="primary"
+                      *ngIf="canUpdateActivitySync(activity)" 
+                      [matMenuTriggerFor]="myStatusMenu"
+                      (click)="$event.stopPropagation()"
+                      matTooltip="Update status"
+                    >
+                      <mat-icon>update</mat-icon>
+                      Status
+                    </button>
+                    <mat-menu #myStatusMenu="matMenu">
+                      <button mat-menu-item (click)="updateActivityStatus(activity.id, 'pending')"
+                              [disabled]="activity.status === 'pending'">
+                        <mat-icon>schedule</mat-icon>
+                        Pending
+                      </button>
+                      <button mat-menu-item (click)="updateActivityStatus(activity.id, 'in-progress')"
+                              [disabled]="activity.status === 'in-progress'">
+                        <mat-icon>play_circle</mat-icon>
+                        In Progress
+                      </button>
+                      <button mat-menu-item (click)="updateActivityStatus(activity.id, 'completed')"
+                              [disabled]="activity.status === 'completed'">
+                        <mat-icon>check_circle</mat-icon>
+                        Completed
+                      </button>
+                      <button mat-menu-item (click)="updateActivityStatus(activity.id, 'on-hold')"
+                              [disabled]="activity.status === 'on-hold'">
+                        <mat-icon>pause_circle</mat-icon>
+                        On Hold
+                      </button>
+                    </mat-menu>
+                  </mat-card-actions>
+                </mat-card>
+              </div>
+
+              <ng-template #noMyActivities>
+                <mat-card class="empty-state enhanced">
+                  <mat-card-content>
+                    <div class="empty-content">
+                      <mat-icon class="empty-icon">assignment_ind</mat-icon>
+                      <h3>No Activities Assigned</h3>
+                      <p *ngIf="mySelectedStatus">No activities found with the selected status filter.</p>
+                      <p *ngIf="!mySelectedStatus">You don't have any activities assigned in this team yet.</p>
+                      <div class="empty-actions">
+                        <button 
+                          *ngIf="mySelectedStatus" 
+                          mat-stroked-button 
+                          color="primary" 
+                          (click)="setMyStatusFilter('')"
+                        >
+                          <mat-icon>clear</mat-icon>
+                          Clear Filter
+                        </button>
+                      </div>
+                    </div>
+                  </mat-card-content>
+                </mat-card>
+              </ng-template>
+            </div>
+            
+        </mat-tab>
+
+        <!-- All Activities Tab -->
         <mat-tab>
           <ng-template mat-tab-label>
             <mat-icon class="tab-icon">assignment</mat-icon>
-            Activities
+            All Activities
             <mat-chip class="tab-badge">{{ activities.length }}</mat-chip>
           </ng-template>
           
-          <div class="tab-content activities-tab">
-            <div class="content-header">
-              <div class="header-title">
-                <h2>Team Activities</h2>
-                <p>Manage and track team activities</p>
-              </div>
-              
-              <div class="activity-filters">
-                <button 
-                  mat-chip-listbox 
-                  [class.selected]="selectedStatus === ''"
-                  (click)="setStatusFilter('')"
-                  matRipple
-                >
-                  <mat-icon>view_list</mat-icon>
-                  All ({{ activities.length }})
-                </button>
-                <button 
-                  mat-chip-listbox
-                  [class.selected]="selectedStatus === 'pending'"
-                  (click)="setStatusFilter('pending')"
-                  matRipple
-                >
-                  <mat-icon>schedule</mat-icon>
-                  Pending ({{ getPendingCount() }})
-                </button>
-                <button 
-                  mat-chip-listbox
-                  [class.selected]="selectedStatus === 'in-progress'"
-                  (click)="setStatusFilter('in-progress')"
-                  matRipple
-                >
-                  <mat-icon>play_circle</mat-icon>
-                  In Progress ({{ getInProgressCount() }})
-                </button>
-                <button 
-                  mat-chip-listbox
-                  [class.selected]="selectedStatus === 'completed'"
-                  (click)="setStatusFilter('completed')"
-                  matRipple
-                >
-                  <mat-icon>check_circle</mat-icon>
-                  Completed ({{ getCompletedCount() }})
-                </button>
-                <button 
-                  mat-chip-listbox
-                  [class.selected]="selectedStatus === 'on-hold'"
-                  (click)="setStatusFilter('on-hold')"
-                  matRipple
-                >
-                  <mat-icon>pause_circle</mat-icon>
-                  On Hold ({{ getOnHoldCount() }})
-                </button>
-              </div>
-            </div>
-
-            <div class="activities-grid" *ngIf="filteredActivities.length > 0; else noActivities">
-              <mat-card 
-                *ngFor="let activity of filteredActivities; trackBy: trackByActivityId" 
-                class="activity-card enhanced"
-                [routerLink]="['/activities', activity.id]"
-                matRipple
-              >
-                <div class="activity-header">
-                  <div class="activity-status-indicator" [class]="'status-' + activity.status"></div>
-                  <!-- <div class="activity-priority" [class]="'priority-' + (activity.priority || 'medium')"> -->
-                    <!-- <mat-icon>{{ getPriorityIcon(activity.priority || 'medium') }}</mat-icon> -->
-                  <!-- </div> -->
+         <div class="tab-content  all-activities">
+              <div class="section-header">
+                <div class="header-title">
+                  <h2>
+                    <mat-icon class="section-icon">groups</mat-icon>
+                    All activities in this team
+                  </h2>
+                  <!-- <p></p> -->
                 </div>
                 
-                <mat-card-content>
-                  <div class="activity-title-section">
-                    <h3>{{ activity.name }}</h3>
-                    <mat-chip class="status-chip" [class]="'status-' + activity.status">
-                      {{ getStatusLabel(activity.status) }}
-                    </mat-chip>
+                <div class="activity-filters">
+                  <button 
+                    mat-chip-listbox 
+                    [class.selected]="selectedStatus === ''"
+                    (click)="setStatusFilter('')"
+                    matRipple
+                  >
+                    <mat-icon>view_list</mat-icon>
+                    All ({{ activities.length }})
+                  </button>
+                  <button 
+                    mat-chip-listbox
+                    [class.selected]="selectedStatus === 'pending'"
+                    (click)="setStatusFilter('pending')"
+                    matRipple
+                  >
+                    <mat-icon>schedule</mat-icon>
+                    Pending ({{ getPendingCount() }})
+                  </button>
+                  <button 
+                    mat-chip-listbox
+                    [class.selected]="selectedStatus === 'in-progress'"
+                    (click)="setStatusFilter('in-progress')"
+                    matRipple
+                  >
+                    <mat-icon>play_circle</mat-icon>
+                    In Progress ({{ getInProgressCount() }})
+                  </button>
+                  <button 
+                    mat-chip-listbox
+                    [class.selected]="selectedStatus === 'completed'"
+                    (click)="setStatusFilter('completed')"
+                    matRipple
+                  >
+                    <mat-icon>check_circle</mat-icon>
+                    Completed ({{ getCompletedCount() }})
+                  </button>
+                  <button 
+                    mat-chip-listbox
+                    [class.selected]="selectedStatus === 'on-hold'"
+                    (click)="setStatusFilter('on-hold')"
+                    matRipple
+                  >
+                    <mat-icon>pause_circle</mat-icon>
+                    On Hold ({{ getOnHoldCount() }})
+                  </button>
+                </div>
+              </div>
+
+              <div class="activities-grid" *ngIf="filteredActivities.length > 0; else noActivities">
+                <mat-card 
+                  *ngFor="let activity of filteredActivities; trackBy: trackByActivityId" 
+                  class="activity-card enhanced"
+                  [routerLink]="['/activities', activity.id]"
+                  matRipple
+                >
+                  <div class="activity-header">
+                    <div class="activity-status-indicator" [class]="'status-' + activity.status"></div>
                   </div>
                   
-                  <p class="activity-description">{{ activity.description }}</p>
-                  
-                  <div class="activity-metadata">
-                    <div class="metadata-row">
-                      <div class="metadata-item">
-                        <mat-icon class="small-icon">people</mat-icon>
-                        <span>{{ getAssignedMembersText(activity.assignedMembers) }}</span>
-                      </div>
-                      <div class="metadata-item">
-                        <mat-icon class="small-icon">schedule</mat-icon>
-                        <span class="due-date" [class]="getDueDateClass(activity.targetDate)">
-                          {{ formatDueDate(activity.targetDate) }}
-                        </span>
-                      </div>
+                  <mat-card-content>
+                    <div class="activity-title-section">
+                      <h3>{{ activity.name }}</h3>
+                      <mat-chip class="status-chip" [class]="'status-' + activity.status">
+                        {{ getStatusLabel(activity.status) }}
+                      </mat-chip>
                     </div>
                     
-                    <div class="metadata-row">
-                      <div class="metadata-item">
-                        <mat-icon class="small-icon">attachment</mat-icon>
-                        <span>{{ getAttachmentsCount(activity) }} attachments</span>
+                    <p class="activity-description">{{ activity.description }}</p>
+                    
+                    <div class="activity-metadata">
+                      <div class="metadata-row">
+                        <div class="metadata-item">
+                          <mat-icon class="small-icon">people</mat-icon>
+                          <span>{{ getAssignedMembersText(activity.assignedMembers) }}</span>
+                        </div>
+                        <div class="metadata-item">
+                          <mat-icon class="small-icon">schedule</mat-icon>
+                          <span class="due-date" [class]="getDueDateClass(activity.targetDate)">
+                            {{ formatDueDate(activity.targetDate) }}
+                          </span>
+                        </div>
                       </div>
-                      <div class="metadata-item">
-                        <mat-icon class="small-icon">comment</mat-icon>
-                        <span>{{ getRemarksCount(activity) }} remarks</span>
+                      
+                      <div class="metadata-row">
+                        <div class="metadata-item">
+                          <mat-icon class="small-icon">attachment</mat-icon>
+                          <span>{{ getAttachmentsCount(activity) }} attachments</span>
+                        </div>
+                        <div class="metadata-item">
+                          <mat-icon class="small-icon">comment</mat-icon>
+                          <span>{{ getRemarksCount(activity) }} remarks</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </mat-card-content>
+                  </mat-card-content>
 
-                <mat-divider></mat-divider>
+                  <mat-divider></mat-divider>
 
-                <mat-card-actions>
-                  <button mat-button color="primary" [routerLink]="['/activities', activity.id]" 
-                          (click)="$event.stopPropagation()">
-                    <mat-icon>visibility</mat-icon>
-                    View
-                  </button>
-                  <button 
-                    mat-button 
-                    *ngIf="canEditActivity(activity)" 
-                    (click)="openEditActivityDialog(activity); $event.stopPropagation()"
-                    matTooltip="Edit activity"
-                  >
-                    <mat-icon>edit</mat-icon>
-                    Edit
-                  </button>
-                  <button 
-                    mat-button 
-                    color="primary"
-                    *ngIf="canUpdateActivitySync(activity)" 
-                    [matMenuTriggerFor]="statusMenu"
-                    (click)="$event.stopPropagation()"
-                    matTooltip="Update status"
-                  >
-                    <mat-icon>update</mat-icon>
-                    Status
-                  </button>
-                  <mat-menu #statusMenu="matMenu">
-                    <button mat-menu-item (click)="updateActivityStatus(activity.id, 'pending')"
-                            [disabled]="activity.status === 'pending'">
-                      <mat-icon>schedule</mat-icon>
-                      Pending
+                  <mat-card-actions>
+                    <button mat-button color="primary" [routerLink]="['/activities', activity.id]" 
+                            (click)="$event.stopPropagation()">
+                      <mat-icon>visibility</mat-icon>
+                      View
                     </button>
-                    <button mat-menu-item (click)="updateActivityStatus(activity.id, 'in-progress')"
-                            [disabled]="activity.status === 'in-progress'">
-                      <mat-icon>play_circle</mat-icon>
-                      In Progress
+                    <button 
+                      mat-button 
+                      *ngIf="canEditActivity(activity)" 
+                      (click)="openEditActivityDialog(activity); $event.stopPropagation()"
+                      matTooltip="Edit activity"
+                    >
+                      <mat-icon>edit</mat-icon>
+                      Edit
                     </button>
-                    <button mat-menu-item (click)="updateActivityStatus(activity.id, 'completed')"
-                            [disabled]="activity.status === 'completed'">
-                      <mat-icon>check_circle</mat-icon>
-                      Completed
+                    <button 
+                      mat-button 
+                      color="primary"
+                      *ngIf="canUpdateActivitySync(activity)" 
+                      [matMenuTriggerFor]="statusMenu"
+                      (click)="$event.stopPropagation()"
+                      matTooltip="Update status"
+                    >
+                      <mat-icon>update</mat-icon>
+                      Status
                     </button>
-                    <button mat-menu-item (click)="updateActivityStatus(activity.id, 'on-hold')"
-                            [disabled]="activity.status === 'on-hold'">
-                      <mat-icon>pause_circle</mat-icon>
-                      On Hold
+                    <mat-menu #statusMenu="matMenu">
+                      <button mat-menu-item (click)="updateActivityStatus(activity.id, 'pending')"
+                              [disabled]="activity.status === 'pending'">
+                        <mat-icon>schedule</mat-icon>
+                        Pending
+                      </button>
+                      <button mat-menu-item (click)="updateActivityStatus(activity.id, 'in-progress')"
+                              [disabled]="activity.status === 'in-progress'">
+                        <mat-icon>play_circle</mat-icon>
+                        In Progress
+                      </button>
+                      <button mat-menu-item (click)="updateActivityStatus(activity.id, 'completed')"
+                              [disabled]="activity.status === 'completed'">
+                        <mat-icon>check_circle</mat-icon>
+                        Completed
+                      </button>
+                      <button mat-menu-item (click)="updateActivityStatus(activity.id, 'on-hold')"
+                              [disabled]="activity.status === 'on-hold'">
+                        <mat-icon>pause_circle</mat-icon>
+                        On Hold
+                      </button>
+                    </mat-menu>
+                    <button 
+                      mat-button 
+                      color="warn"
+                      *ngIf="canEditActivity(activity)" 
+                      (click)="deleteActivity(activity); $event.stopPropagation()"
+                      matTooltip="Delete activity"
+                    >
+                      <mat-icon>delete</mat-icon>
                     </button>
-                  </mat-menu>
-                  <button 
-                    mat-button 
-                    color="warn"
-                    *ngIf="canEditActivity(activity)" 
-                    (click)="deleteActivity(activity); $event.stopPropagation()"
-                    matTooltip="Delete activity"
-                  >
-                    <mat-icon>delete</mat-icon>
-                  </button>
-                </mat-card-actions>
-              </mat-card>
+                  </mat-card-actions>
+                </mat-card>
+              </div>
+
+              <ng-template #noActivities>
+                <mat-card class="empty-state enhanced">
+                  <mat-card-content>
+                    <div class="empty-content">
+                      <mat-icon class="empty-icon">assignment</mat-icon>
+                      <h3>No Activities Found</h3>
+                      <p *ngIf="selectedStatus">No activities found with the selected status filter.</p>
+                      <p *ngIf="!selectedStatus">This team doesn't have any activities yet. Create the first one!</p>
+                      <div class="empty-actions">
+                        <button 
+                          *ngIf="(canCreateActivity$ | async) && !selectedStatus" 
+                          mat-raised-button 
+                          color="primary" 
+                          (click)="openCreateActivityDialog()"
+                        >
+                          <mat-icon>add</mat-icon>
+                          Create First Activity
+                        </button>
+                        <button 
+                          *ngIf="selectedStatus" 
+                          mat-stroked-button 
+                          color="primary" 
+                          (click)="setStatusFilter('')"
+                        >
+                          <mat-icon>clear</mat-icon>
+                          Clear Filter
+                        </button>
+                      </div>
+                    </div>
+                  </mat-card-content>
+                </mat-card>
+              </ng-template>
             </div>
-
-            <ng-template #noActivities>
-              <mat-card class="empty-state enhanced">
-                <mat-card-content>
-                  <div class="empty-content">
-                    <mat-icon class="empty-icon">assignment</mat-icon>
-                    <h3>No Activities Found</h3>
-                    <p *ngIf="selectedStatus">No activities found with the selected status filter.</p>
-                    <p *ngIf="!selectedStatus">This team doesn't have any activities yet. Create the first one!</p>
-                    <div class="empty-actions">
-                      <button 
-                        *ngIf="(canCreateActivity$ | async) && !selectedStatus" 
-                        mat-raised-button 
-                        color="primary" 
-                        (click)="openCreateActivityDialog()"
-                      >
-                        <mat-icon>add</mat-icon>
-                        Create First Activity
-                      </button>
-                      <button 
-                        *ngIf="selectedStatus" 
-                        mat-stroked-button 
-                        color="primary" 
-                        (click)="setStatusFilter('')"
-                      >
-                        <mat-icon>clear</mat-icon>
-                        Clear Filter
-                      </button>
-                    </div>
-                  </div>
-                </mat-card-content>
-              </mat-card>
-            </ng-template>
-          </div>
         </mat-tab>
 
         <!-- Enhanced Members Tab -->
@@ -397,7 +594,7 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
           <ng-template mat-tab-label>
             <mat-icon class="tab-icon">groups</mat-icon>
             Members
-            <mat-chip class="tab-badge">{{ team.members?.length || 0 }}</mat-chip>
+            <mat-chip class="tab-badge">{{ team?.members?.length || 0 }}</mat-chip>
           </ng-template>
           
           <div class="tab-content members-tab">
@@ -419,7 +616,7 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
             </div>
 
             <div class="members-grid">
-              <mat-card *ngFor="let member of team.members; trackBy: trackByMemberId" class="member-card enhanced" matRipple>
+              <mat-card *ngFor="let member of team?.members; trackBy: trackByMemberId" class="member-card enhanced" matRipple>
                 <div class="member-header">
                   <div class="member-avatar">
                     <mat-icon>person</mat-icon>
@@ -781,7 +978,65 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
       padding: 32px;
     }
 
-    .content-header {
+    /* Activities Sections */
+    .activities-section {
+      margin-bottom: 48px;
+    }
+
+    .activities-section .section-header {
+      margin-bottom: 32px;
+    }
+
+    .activities-section .header-title {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      margin-bottom: 16px;
+    }
+
+    .activities-section .header-title h2 {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 24px;
+      font-weight: 500;
+      margin: 0;
+      color: #333;
+    }
+
+    .section-icon {
+      font-size: 28px;
+      height: 28px;
+      width: 28px;
+      color: #667eea;
+    }
+
+    .my-activities .section-icon {
+      color: #4caf50;
+    }
+
+    .all-activities .section-icon {
+      color: #667eea;
+    }
+
+    .section-divider {
+      margin: 48px 0;
+      background-color: #e0e0e0;
+    }
+
+    /* My Activities specific styling */
+    .my-activity {
+      border-left: 4px solid #4caf50;
+    }
+
+    .my-activity-badge {
+      background-color: #e8f5e8;
+      color: #4caf50;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .content-header, .section-header {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
@@ -794,6 +1049,9 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
       font-weight: 400;
       margin: 0 0 8px 0;
       color: #333;
+      display: flex;
+    align-items: center;
+    gap: 10px;
     }
 
     .header-title p {
@@ -1388,7 +1646,11 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
   team: Team | null = null;
   activities: Activity[] = [];
   filteredActivities: Activity[] = [];
+  myActivities: Activity[] = []; // Activities assigned to current user
   selectedStatus = '';
+  mySelectedStatus = ''; // Status filter for my activities
+  statusFilter = 'all'; // Status filter for all activities
+  myActivitiesStatusFilter = 'all'; // Status filter for my activities
   isAdmin$: Observable<boolean>;
   canCreateActivity$: Observable<boolean>;
   currentUser: User | null = null;
@@ -1456,7 +1718,9 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
     this.team = null;
     this.activities = [];
     this.filteredActivities = [];
+    this.myActivities = [];
     this.selectedStatus = '';
+    this.mySelectedStatus = '';
     this.isLoading = false;
   }
 
@@ -1491,6 +1755,7 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
           console.log('Raw activities response:', activities);
           this.activities = activities || [];
           this.filterActivities();
+          this.filterMyActivities(); // Filter activities for current user
           console.log('Activities loaded successfully:', activities?.length || 0, 'activities');
           if (activities && activities.length > 0) {
             console.log('Sample activity structure:', activities[0]);
@@ -1500,6 +1765,7 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
           console.error('Error loading activities:', error);
           this.activities = [];
           this.filteredActivities = [];
+          this.myActivities = [];
           this.snackBar.open('Failed to load activities', 'Close', { duration: 3000 });
         }
       })
@@ -1521,6 +1787,42 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
 
   getOnHoldCount(): number {
     return this.activities.filter(a => a.status === 'on-hold').length;
+  }
+
+  // Helper methods for user's activities
+  getMyPendingCount(): number {
+    return this.getMyActivitiesByStatus('all').filter(a => a.status === 'pending').length;
+  }
+
+  getMyCompletedCount(): number {
+    return this.getMyActivitiesByStatus('all').filter(a => a.status === 'completed').length;
+  }
+
+  getMyInProgressCount(): number {
+    return this.getMyActivitiesByStatus('all').filter(a => a.status === 'in-progress').length;
+  }
+
+  getMyOnHoldCount(): number {
+    return this.getMyActivitiesByStatus('all').filter(a => a.status === 'on-hold').length;
+  }
+
+  getMyActivitiesByStatus(status: string): Activity[] {
+    if (!this.currentUser) return [];
+    
+    const userActivities = this.activities.filter(activity => {
+      let assignedIds: string[] = [];
+      if (Array.isArray(activity.assignedMembers)) {
+        assignedIds = activity.assignedMembers.map(m => m.id);
+      } else if (activity.assignedMembers && typeof activity.assignedMembers === 'string') {
+        assignedIds = (activity.assignedMembers as any).split(',').map((id: string) => id.trim());
+      } else if (activity.assignedMembers) {
+        assignedIds = String(activity.assignedMembers).split(',').map((id: string) => id.trim());
+      }
+      return assignedIds.includes(this.currentUser!.id);
+    });
+
+    if (status === 'all') return userActivities;
+    return userActivities.filter(activity => activity.status === status);
   }
 
   getPendingStatus(): string {
@@ -1629,9 +1931,84 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
     }
   }
 
+  filterMyActivities() {
+    if (!this.currentUser) {
+      this.myActivities = [];
+      return;
+    }
+
+    // Get activities assigned to current user
+    const userActivities = this.activities.filter(activity => {
+      let assignedIds: string[] = [];
+      if (Array.isArray(activity.assignedMembers)) {
+        assignedIds = activity.assignedMembers.map(m => m.id);
+      } else if (activity.assignedMembers && typeof activity.assignedMembers === 'string') {
+        assignedIds = (activity.assignedMembers as any).split(',').map((id: string) => id.trim());
+      } else if (activity.assignedMembers) {
+        assignedIds = String(activity.assignedMembers).split(',').map((id: string) => id.trim());
+      }
+      return assignedIds.includes(this.currentUser!.id);
+    });
+
+    // Apply status filter to my activities
+    if (!this.mySelectedStatus) {
+      this.myActivities = userActivities;
+    } else {
+      this.myActivities = userActivities.filter(
+        activity => activity.status === this.mySelectedStatus
+      );
+    }
+  }
+
   setStatusFilter(status: string) {
     this.selectedStatus = status;
     this.filterActivities();
+  }
+
+  setMyStatusFilter(status: string) {
+    this.mySelectedStatus = status;
+    this.filterMyActivities();
+  }
+
+  // New methods for tab-based filtering
+  getActivitiesByStatus(status: string): Activity[] {
+    if (status === 'all') return this.activities;
+    return this.activities.filter(activity => activity.status === status);
+  }
+
+  setMyActivitiesStatusFilter(status: string) {
+    this.myActivitiesStatusFilter = status;
+  }
+
+  getFilteredMyActivities(): Activity[] {
+    return this.getMyActivitiesByStatus(this.myActivitiesStatusFilter);
+  }
+
+  getFilteredActivities(): Activity[] {
+    return this.getActivitiesByStatus(this.statusFilter);
+  }
+
+  sortActivities(criteria: string) {
+    this.activities.sort((a, b) => {
+      switch (criteria) {
+        case 'date':
+          const dateA = a.targetDate ? new Date(a.targetDate).getTime() : 0;
+          const dateB = b.targetDate ? new Date(b.targetDate).getTime() : 0;
+          return dateA - dateB;
+        case 'priority':
+          const priorityOrder = { 'urgent': 4, 'high': 3, 'medium': 2, 'low': 1 };
+          return (priorityOrder[b.priority as keyof typeof priorityOrder] || 0) - 
+                 (priorityOrder[a.priority as keyof typeof priorityOrder] || 0);
+        case 'status':
+          return a.status.localeCompare(b.status);
+        default:
+          return 0;
+      }
+    });
+  }
+
+  viewActivity(activity: Activity) {
+    this.router.navigate(['/activities', activity.id]);
   }
 
   getTeamProgress(): number {

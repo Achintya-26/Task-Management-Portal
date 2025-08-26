@@ -9,7 +9,7 @@ import { of } from 'rxjs';
   providedIn: 'root'
 })
 export class AuthService {
-  private apiUrl = 'http://localhost:3000/api'; // Updated port for Spring Boot
+  private apiUrl = 'http://localhost:3000/api'; // Spring Boot backend
   private currentUserSubject = new BehaviorSubject<User | null>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
 

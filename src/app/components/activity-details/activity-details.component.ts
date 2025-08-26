@@ -102,7 +102,7 @@ import { map } from 'rxjs/operators';
             <div class="breadcrumb">
               <span class="breadcrumb-item" (click)="navigateTo('/dashboard')">Dashboard</span>
               <mat-icon class="breadcrumb-arrow">chevron_right</mat-icon>
-              <span class="breadcrumb-item" (click)="navigateTo('/activities')">Activities</span>
+              <span class="breadcrumb-item" (click)="navigateTo('/teams/' + activity!.teamId)">Activities</span>
               <mat-icon class="breadcrumb-arrow">chevron_right</mat-icon>
               <span class="breadcrumb-current">{{ activity.name }}</span>
             </div>
@@ -2466,7 +2466,7 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
   }
 
   goBack() {
-    this.router.navigate(['/dashboard']);
+    this.router.navigate(['/teams/' + this.activity!.teamId]);
   }
 
   // New enhanced methods for the improved UI

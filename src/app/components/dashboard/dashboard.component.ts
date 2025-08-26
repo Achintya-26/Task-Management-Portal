@@ -1038,7 +1038,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   loadDashboardData() {
     // Load teams first, then activities for each team
     this.subscriptions.push(
-      this.teamService.getTeams().subscribe(teams => {
+      this.teamService.getUserTeams().subscribe(teams => {
         this.teams = teams;
         this.loadActivitiesForTeams();
       })

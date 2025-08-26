@@ -165,6 +165,23 @@ import { User, Activity, Attachment, ActivityLink } from '../../../models';
               <!-- File Upload -->
               <div class="upload-section">
                 <h4>File Attachments</h4>
+                
+                <!-- Existing Attachments (for edit mode) -->
+                <div class="existing-attachments" *ngIf="isEditMode && existingAttachments.length > 0">
+                  <h5>Current Attachments</h5>
+                  <mat-list>
+                    <mat-list-item *ngFor="let attachment of existingAttachments">
+                      <mat-icon matListItemIcon>{{ getFileIcon(attachment.filename) }}</mat-icon>
+                      <div matListItemTitle>{{ attachment.originalName || attachment.filename }}</div>
+                      <div matListItemLine>{{ attachment.fileSize ? formatFileSize(attachment.fileSize) : 'Unknown size' }}</div>
+                      <button mat-icon-button (click)="removeExistingAttachment(attachment)" 
+                              matTooltip="Remove attachment">
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    </mat-list-item>
+                  </mat-list>
+                </div>
+                
                 <div class="file-upload-area" 
                      (drop)="onDrop($event)" 
                      (dragover)="onDragOver($event)" 
@@ -180,7 +197,7 @@ import { User, Activity, Attachment, ActivityLink } from '../../../models';
                 </div>
                 
                 <div class="selected-files" *ngIf="selectedFiles.length > 0">
-                  <h5>Selected Files</h5>
+                  <h5>New Files to Upload</h5>
                   <mat-list>
                     <mat-list-item *ngFor="let file of selectedFiles">
                       <mat-icon matListItemIcon>{{ getFileIcon(file.name) }}</mat-icon>
@@ -197,6 +214,18 @@ import { User, Activity, Attachment, ActivityLink } from '../../../models';
               <!-- Link Addition -->
               <div class="link-section">
                 <h4>Web Links</h4>
+                
+                <!-- Existing Links (for edit mode) -->
+                <div class="existing-links" *ngIf="isEditMode && existingLinks.length > 0">
+                  <h5>Current Links</h5>
+                  <mat-chip-set>
+                    <mat-chip *ngFor="let link of existingLinks" (removed)="removeExistingLink(link)">
+                      {{ getTruncatedUrl(link.url) }}
+                      <mat-icon matChipRemove>cancel</mat-icon>
+                    </mat-chip>
+                  </mat-chip-set>
+                </div>
+                
                 <mat-form-field appearance="outline" class="full-width">
                   <mat-label>Add Link</mat-label>
                   <input matInput #linkInput placeholder="https://example.com">
@@ -206,7 +235,7 @@ import { User, Activity, Attachment, ActivityLink } from '../../../models';
                 </mat-form-field>
                 
                 <div class="selected-links" *ngIf="selectedLinks.length > 0">
-                  <h5>Added Links</h5>
+                  <h5>New Links to Add</h5>
                   <mat-chip-set>
                     <mat-chip *ngFor="let link of selectedLinks" (removed)="removeLink(link)">
                       {{ getTruncatedUrl(link) }}
@@ -256,10 +285,14 @@ import { User, Activity, Attachment, ActivityLink } from '../../../models';
                     </mat-chip-set>
                   </div>
                   
-                  <div class="review-section" *ngIf="selectedFiles.length > 0 || selectedLinks.length > 0">
+                  <div class="review-section" *ngIf="selectedFiles.length > 0 || selectedLinks.length > 0 || (isEditMode && (existingAttachments.length > 0 || existingLinks.length > 0))">
                     <h4>Resources</h4>
-                    <p *ngIf="selectedFiles.length > 0">Files: {{ selectedFiles.length }}</p>
-                    <p *ngIf="selectedLinks.length > 0">Links: {{ selectedLinks.length }}</p>
+                    <p *ngIf="isEditMode && existingAttachments.length > 0">Current Attachments: {{ existingAttachments.length }}</p>
+                    <p *ngIf="isEditMode && existingLinks.length > 0">Current Links: {{ existingLinks.length }}</p>
+                    <p *ngIf="selectedFiles.length > 0">New Files: {{ selectedFiles.length }}</p>
+                    <p *ngIf="selectedLinks.length > 0">New Links: {{ selectedLinks.length }}</p>
+                    <p *ngIf="isEditMode && attachmentsToDelete.length > 0" class="deletion-note">Attachments to remove: {{ attachmentsToDelete.length }}</p>
+                    <p *ngIf="isEditMode && linksToDelete.length > 0" class="deletion-note">Links to remove: {{ linksToDelete.length }}</p>
                   </div>
                 </mat-card-content>
               </mat-card>
@@ -419,11 +452,11 @@ import { User, Activity, Attachment, ActivityLink } from '../../../models';
       color: #666;
     }
 
-    .selected-files, .selected-links {
+    .selected-files, .selected-links, .existing-attachments, .existing-links {
       margin-top: 16px;
     }
 
-    .selected-files h5, .selected-links h5 {
+    .selected-files h5, .selected-links h5, .existing-attachments h5, .existing-links h5 {
       margin: 0 0 12px 0;
       font-size: 14px;
       font-weight: 500;
@@ -448,6 +481,11 @@ import { User, Activity, Attachment, ActivityLink } from '../../../models';
     .review-section p {
       margin: 0;
       color: #666;
+    }
+
+    .deletion-note {
+      color: #f44336 !important;
+      font-style: italic;
     }
 
     mat-stepper {
@@ -668,6 +706,26 @@ export class CreateActivityDialogComponent implements OnInit {
     this.selectedLinks = this.selectedLinks.filter(link => link !== linkToRemove);
   }
 
+  removeExistingAttachment(attachmentToRemove: any) {
+    // Remove from the display array
+    this.existingAttachments = this.existingAttachments.filter(att => att.id !== attachmentToRemove.id);
+    
+    // Add to deletion array if it has an ID (exists in database)
+    if (attachmentToRemove.id) {
+      this.attachmentsToDelete.push(attachmentToRemove.id);
+    }
+  }
+
+  removeExistingLink(linkToRemove: any) {
+    // Remove from the display array
+    this.existingLinks = this.existingLinks.filter(link => link.id !== linkToRemove.id);
+    
+    // Add to deletion array if it has an ID (exists in database)
+    if (linkToRemove.id) {
+      this.linksToDelete.push(linkToRemove.id);
+    }
+  }
+
   getFileIcon(fileName: string): string {
     const extension = fileName.split('.').pop()?.toLowerCase();
     switch (extension) {
@@ -736,6 +794,14 @@ export class CreateActivityDialogComponent implements OnInit {
       }
 
       if (this.isEditMode && this.data.activity) {
+        // Add deleted attachments and links for update
+        if (this.attachmentsToDelete.length > 0) {
+          formData.append('attachmentsToDelete', JSON.stringify(this.attachmentsToDelete));
+        }
+        if (this.linksToDelete.length > 0) {
+          formData.append('linksToDelete', JSON.stringify(this.linksToDelete));
+        }
+        
         // Update existing activity
         await this.activityService.updateActivity(+this.data.activity.id!, formData).toPromise();
         this.snackBar.open('Activity updated successfully', 'Close', { duration: 3000 });
