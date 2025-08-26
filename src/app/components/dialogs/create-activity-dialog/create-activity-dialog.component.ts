@@ -12,7 +12,13 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatListModule } from '@angular/material/list';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatStepperModule } from '@angular/material/stepper';
+import { MatCardModule } from '@angular/material/card';
+import { MatBadgeModule } from '@angular/material/badge';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivityService } from '../../../services/activity.service';
 import { AuthService } from '../../../services/auth.service';
@@ -36,258 +42,315 @@ import { User, Activity, Attachment, ActivityLink } from '../../../models';
     MatChipsModule,
     MatListModule,
     MatProgressBarModule,
-    MatTooltipModule
+    MatProgressSpinnerModule,
+    MatTooltipModule,
+    MatDividerModule,
+    MatStepperModule,
+    MatCardModule,
+    MatBadgeModule,
+    MatSlideToggleModule
   ],
   providers: [
     { provide: MAT_DATE_LOCALE, useValue: 'en-US' }
   ],
   template: `
     <div class="create-activity-dialog">
-      <h2 mat-dialog-title>{{ isEditMode ? 'Edit Activity' : 'Create New Activity' }}</h2>
-      
-      <mat-dialog-content>
-        <form [formGroup]="activityForm">
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Activity Title</mat-label>
-            <input matInput formControlName="name" placeholder="Enter activity title">
-            <mat-error *ngIf="activityForm.get('name')?.hasError('required')">
-              Title is required
-            </mat-error>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Description</mat-label>
-            <textarea 
-              matInput 
-              formControlName="description" 
-              rows="3"
-              placeholder="Enter activity description"
-            ></textarea>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Priority</mat-label>
-            <mat-select formControlName="priority">
-              <mat-option value="low">Low</mat-option>
-              <mat-option value="medium">Medium</mat-option>
-              <mat-option value="high">High</mat-option>
-              <mat-option value="urgent">Urgent</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Target Date</mat-label>
-            <input 
-              matInput 
-              [matDatepicker]="picker" 
-              formControlName="targetDate"
-              placeholder="Select target date"
-              readonly>
-            <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
-            <mat-datepicker #picker></mat-datepicker>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Assign Members</mat-label>
-            <mat-select multiple formControlName="assignedUsers">
-              <mat-option *ngFor="let member of getSelectableMembers()" [value]="member.id">
-                {{ member.name }} ({{ member.empId }})
-              </mat-option>
-            </mat-select>
-            <mat-hint>Select team members to assign to this activity (you are assigned by default)</mat-hint>
-          </mat-form-field>
-
-          <!-- Show assigned members -->
-          <div class="assigned-members" *ngIf="selectedMembers.length > 0">
-            <h4>Assigned Members:</h4>
-            <mat-chip-listbox>
-              <mat-chip 
-                *ngFor="let member of selectedMembers"
-                (removed)="removeAssignedMember(member.id)"
-              >
-                {{ member.name }} ({{ member.empId }})
-                <mat-icon matChipRemove>cancel</mat-icon>
-              </mat-chip>
-            </mat-chip-listbox>
+      <!-- Dialog Header -->
+      <div mat-dialog-title class="dialog-header">
+        <div class="header-content">
+          <mat-icon class="header-icon">{{ isEditMode ? 'edit' : 'add_task' }}</mat-icon>
+          <div class="header-text">
+            <h2>{{ isEditMode ? 'Edit Activity' : 'Create New Activity' }}</h2>
+            <p>{{ isEditMode ? 'Update activity details and assignments' : 'Define a new activity with all necessary details' }}</p>
           </div>
-
-          <!-- File Upload Section -->
-          <div class="file-upload-section">
-            <h4>Attachments</h4>
-            <div class="file-input-container">
-              <input 
-                type="file" 
-                #fileInput 
-                (change)="onFilesSelected($event)"
-                multiple 
-                accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.xlsx,.xls,.ppt,.pptx"
-                style="display: none;"
-              >
-              <button 
-                type="button" 
-                mat-raised-button 
-                color="accent" 
-                (click)="fileInput.click()"
-                class="upload-button"
-              >
-                <mat-icon>attach_file</mat-icon>
-                Select Files
-              </button>
-              <span class="file-hint">
-                Supported: PDF, DOC, DOCX, TXT, JPG, PNG, GIF, Excel, PowerPoint (Max 10MB per file)
-              </span>
-            </div>
-
-            <!-- Selected Files List -->
-            <div class="selected-files" *ngIf="selectedFiles.length > 0">
-              <h5>New Files to Upload ({{ selectedFiles.length }}):</h5>
-              <mat-list>
-                <mat-list-item *ngFor="let file of selectedFiles; let i = index">
-                  <mat-icon matListItemIcon>{{ getFileIcon(file.name) }}</mat-icon>
-                  <div matListItemTitle>{{ file.name }}</div>
-                  <div matListItemLine>{{ formatFileSize(file.size) }}</div>
-                  <button 
-                    mat-icon-button 
-                    color="warn" 
-                    (click)="removeFile(i)"
-                    matListItemMeta
-                  >
-                    <mat-icon>delete</mat-icon>
-                  </button>
-                </mat-list-item>
-              </mat-list>
-            </div>
-
-            <!-- Existing Attachments (Edit Mode) -->
-            <div class="existing-attachments" *ngIf="isEditMode && existingAttachments.length > 0">
-              <h5>Current Attachments ({{ getActiveAttachments().length }}):</h5>
-              <mat-list>
-                <mat-list-item *ngFor="let attachment of existingAttachments">
-                  <mat-icon matListItemIcon [class.deleted]="isAttachmentMarkedForDeletion(attachment.id)">
-                    {{ getFileIcon(attachment.originalName) }}
-                  </mat-icon>
-                  <div matListItemTitle [class.deleted]="isAttachmentMarkedForDeletion(attachment.id)">
-                    {{ attachment.originalName }}
-                  </div>
-                  <div matListItemLine [class.deleted]="isAttachmentMarkedForDeletion(attachment.id)">
-                    {{ formatFileSize(attachment.fileSize) }} • Uploaded {{ formatDate(attachment.uploadedAt) }}
-                  </div>
-                  <div matListItemMeta class="attachment-actions">
-                    <button 
-                      mat-icon-button 
-                      color="primary" 
-                      (click)="downloadExistingAttachment(attachment)"
-                      [disabled]="isAttachmentMarkedForDeletion(attachment.id)"
-                      matTooltip="Download"
-                    >
-                      <mat-icon>download</mat-icon>
-                    </button>
-                    <button 
-                      mat-icon-button 
-                      [color]="isAttachmentMarkedForDeletion(attachment.id) ? 'accent' : 'warn'"
-                      (click)="toggleAttachmentDeletion(attachment.id)"
-                      [matTooltip]="isAttachmentMarkedForDeletion(attachment.id) ? 'Restore' : 'Mark for deletion'"
-                    >
-                      <mat-icon>{{ isAttachmentMarkedForDeletion(attachment.id) ? 'restore' : 'delete' }}</mat-icon>
-                    </button>
-                  </div>
-                </mat-list-item>
-              </mat-list>
-            </div>
-
-            <!-- Links Section -->
-            <div class="links-section">
+        </div>
+        <button mat-icon-button (click)="onCancel()" class="close-button">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+      
+      <mat-dialog-content class="dialog-content">
+        <mat-stepper [linear]="false" #stepper orientation="horizontal">
+          <!-- Step 1: Basic Information -->
+          <mat-step [stepControl]="basicInfoForm" label="Basic Information">
+            <ng-template matStepLabel>Basic Info</ng-template>
+            <form [formGroup]="basicInfoForm" class="step-form">
+              <h3>Activity Details</h3>
+              
               <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Add Related Links</mat-label>
-                <input 
-                  matInput 
-                  #linkInput
-                  placeholder="Enter URL (e.g., https://example.com)"
-                  (keyup.enter)="addLink(linkInput.value); linkInput.value = ''"
-                >
-                <button 
-                  type="button"
-                  mat-icon-button 
-                  matSuffix 
-                  (click)="addLink(linkInput.value); linkInput.value = ''"
-                  [disabled]="!linkInput.value"
-                >
-                  <mat-icon>add</mat-icon>
-                </button>
+                <mat-label>Activity Title</mat-label>
+                <input matInput formControlName="name" placeholder="Enter activity title">
+                <mat-error *ngIf="basicInfoForm.get('name')?.hasError('required')">
+                  Activity title is required
+                </mat-error>
               </mat-form-field>
 
-              <!-- Selected Links -->
-              <div class="selected-links" *ngIf="selectedLinks.length > 0">
-                <h5>New Links to Add:</h5>
-                <mat-chip-listbox>
-                  <mat-chip 
-                    *ngFor="let link of selectedLinks; let i = index"
-                    (removed)="removeLink(i)"
-                  >
-                    <mat-icon matChipAvatar>link</mat-icon>
-                    {{ link }}
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Priority Level</mat-label>
+                <mat-select formControlName="priority">
+                  <mat-option value="low">Low Priority</mat-option>
+                  <mat-option value="medium">Medium Priority</mat-option>
+                  <mat-option value="high">High Priority</mat-option>
+                  <mat-option value="urgent">Urgent</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Description</mat-label>
+                <textarea matInput formControlName="description" rows="4" 
+                  placeholder="Describe what needs to be accomplished"></textarea>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Target Date</mat-label>
+                <input matInput [matDatepicker]="picker" formControlName="targetDate">
+                <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+                <mat-datepicker #picker></mat-datepicker>
+                <mat-error *ngIf="basicInfoForm.get('targetDate')?.hasError('required')">
+                  Target date is required
+                </mat-error>
+              </mat-form-field>
+
+              <div class="step-actions">
+                <button mat-raised-button color="primary" matStepperNext 
+                  [disabled]="!basicInfoForm.valid">
+                  Next: Assign Members
+                </button>
+              </div>
+            </form>
+          </mat-step>
+
+          <!-- Step 2: Team Assignment -->
+          <mat-step [stepControl]="assignmentForm" label="Team Assignment">
+            <ng-template matStepLabel>Assign Members</ng-template>
+            <form [formGroup]="assignmentForm" class="step-form">
+              <h3>Team Members</h3>
+              
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Select Team Members</mat-label>
+                <mat-select formControlName="assignedUsers" multiple>
+                  <mat-option *ngFor="let member of getSelectableMembers()" [value]="member.id">
+                    {{ member.name }} ({{ member.empId }})
+                  </mat-option>
+                </mat-select>
+                <mat-hint>Select members to assign to this activity</mat-hint>
+              </mat-form-field>
+
+              <div class="selected-members" *ngIf="selectedMembers.length > 0">
+                <h4>Selected Members</h4>
+                <mat-chip-set>
+                  <mat-chip *ngFor="let member of selectedMembers" 
+                    (removed)="removeAssignedMember(member.id)">
+                    {{ member.name }}
                     <mat-icon matChipRemove>cancel</mat-icon>
                   </mat-chip>
-                </mat-chip-listbox>
+                </mat-chip-set>
               </div>
 
-              <!-- Existing Links (Edit Mode) -->
-              <div class="existing-links" *ngIf="isEditMode && existingLinks.length > 0">
-                <h5>Current Links ({{ getActiveLinks().length }}):</h5>
-                <mat-chip-listbox>
-                  <mat-chip 
-                    *ngFor="let link of existingLinks"
-                    [class.deleted]="isLinkMarkedForDeletion(link.id)"
-                    [disabled]="isLinkMarkedForDeletion(link.id)"
-                  >
-                    <mat-icon matChipAvatar>link</mat-icon>
-                    <span [class.deleted]="isLinkMarkedForDeletion(link.id)">{{ link.url }}</span>
-                    <div class="link-actions">
-                      <button 
-                        mat-icon-button 
-                        size="small"
-                        color="primary" 
-                        (click)="openLink(link.url); $event.stopPropagation()"
-                        [disabled]="isLinkMarkedForDeletion(link.id)"
-                        matTooltip="Open link"
-                      >
-                        <mat-icon>open_in_new</mat-icon>
+              <div class="step-actions">
+                <button mat-button matStepperPrevious>Previous</button>
+                <button mat-raised-button color="primary" matStepperNext>
+                  Next: Attachments
+                </button>
+              </div>
+            </form>
+          </mat-step>
+
+          <!-- Step 3: Attachments & Links -->
+          <mat-step label="Attachments & Links">
+            <ng-template matStepLabel>Resources</ng-template>
+            <div class="step-form">
+              <h3>Add Resources</h3>
+              
+              <!-- File Upload -->
+              <div class="upload-section">
+                <h4>File Attachments</h4>
+                <div class="file-upload-area" 
+                     (drop)="onDrop($event)" 
+                     (dragover)="onDragOver($event)" 
+                     (dragleave)="onDragLeave($event)">
+                  <mat-icon>cloud_upload</mat-icon>
+                  <p>Drag & drop files here or click to select</p>
+                  <button mat-raised-button type="button" (click)="fileInput.click()">
+                    <mat-icon>attach_file</mat-icon>
+                    Choose Files
+                  </button>
+                  <input #fileInput type="file" multiple (change)="onFilesSelected($event)" 
+                         accept="*/*" style="display: none">
+                </div>
+                
+                <div class="selected-files" *ngIf="selectedFiles.length > 0">
+                  <h5>Selected Files</h5>
+                  <mat-list>
+                    <mat-list-item *ngFor="let file of selectedFiles">
+                      <mat-icon matListItemIcon>{{ getFileIcon(file.name) }}</mat-icon>
+                      <div matListItemTitle>{{ file.name }}</div>
+                      <div matListItemLine>{{ formatFileSize(file.size) }}</div>
+                      <button mat-icon-button (click)="removeFile(file)">
+                        <mat-icon>delete</mat-icon>
                       </button>
-                      <button 
-                        mat-icon-button 
-                        size="small"
-                        [color]="isLinkMarkedForDeletion(link.id) ? 'accent' : 'warn'"
-                        (click)="toggleLinkDeletion(link.id); $event.stopPropagation()"
-                        [matTooltip]="isLinkMarkedForDeletion(link.id) ? 'Restore' : 'Mark for deletion'"
-                      >
-                        <mat-icon>{{ isLinkMarkedForDeletion(link.id) ? 'restore' : 'delete' }}</mat-icon>
-                      </button>
-                    </div>
-                  </mat-chip>
-                </mat-chip-listbox>
+                    </mat-list-item>
+                  </mat-list>
+                </div>
+              </div>
+
+              <!-- Link Addition -->
+              <div class="link-section">
+                <h4>Web Links</h4>
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Add Link</mat-label>
+                  <input matInput #linkInput placeholder="https://example.com">
+                  <button mat-icon-button matSuffix (click)="addLink(linkInput.value); linkInput.value=''">
+                    <mat-icon>add</mat-icon>
+                  </button>
+                </mat-form-field>
+                
+                <div class="selected-links" *ngIf="selectedLinks.length > 0">
+                  <h5>Added Links</h5>
+                  <mat-chip-set>
+                    <mat-chip *ngFor="let link of selectedLinks" (removed)="removeLink(link)">
+                      {{ getTruncatedUrl(link) }}
+                      <mat-icon matChipRemove>cancel</mat-icon>
+                    </mat-chip>
+                  </mat-chip-set>
+                </div>
+              </div>
+
+              <div class="step-actions">
+                <button mat-button matStepperPrevious>Previous</button>
+                <button mat-raised-button color="primary" matStepperNext>
+                  Review & Create
+                </button>
               </div>
             </div>
-          </div>
-        </form>
-      </mat-dialog-content>
+          </mat-step>
 
-      <mat-dialog-actions align="end">
-        <button mat-button (click)="onCancel()">Cancel</button>
-        <button 
-          mat-raised-button 
-          color="primary" 
-          (click)="onSubmit()"
-          [disabled]="!activityForm.valid || isLoading"
-        >
-          {{ isLoading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Activity' : 'Create Activity') }}
-        </button>
-      </mat-dialog-actions>
+          <!-- Step 4: Review -->
+          <mat-step label="Review">
+            <ng-template matStepLabel>Review</ng-template>
+            <div class="step-form">
+              <h3>Review Activity Details</h3>
+              
+              <mat-card class="review-card">
+                <mat-card-header>
+                  <mat-card-title>{{ activityForm.get('name')?.value }}</mat-card-title>
+                  <mat-card-subtitle>Priority: {{ activityForm.get('priority')?.value }}</mat-card-subtitle>
+                </mat-card-header>
+                <mat-card-content>
+                  <div class="review-section">
+                    <h4>Description</h4>
+                    <p>{{ activityForm.get('description')?.value || 'No description provided' }}</p>
+                  </div>
+                  
+                  <div class="review-section">
+                    <h4>Target Date</h4>
+                    <p>{{ activityForm.get('targetDate')?.value | date }}</p>
+                  </div>
+                  
+                  <div class="review-section" *ngIf="selectedMembers.length > 0">
+                    <h4>Assigned Members</h4>
+                    <mat-chip-set>
+                      <mat-chip *ngFor="let member of selectedMembers">
+                        {{ member.name }}
+                      </mat-chip>
+                    </mat-chip-set>
+                  </div>
+                  
+                  <div class="review-section" *ngIf="selectedFiles.length > 0 || selectedLinks.length > 0">
+                    <h4>Resources</h4>
+                    <p *ngIf="selectedFiles.length > 0">Files: {{ selectedFiles.length }}</p>
+                    <p *ngIf="selectedLinks.length > 0">Links: {{ selectedLinks.length }}</p>
+                  </div>
+                </mat-card-content>
+              </mat-card>
+
+              <div class="step-actions">
+                <button mat-button matStepperPrevious>Previous</button>
+                <button mat-raised-button color="primary" 
+                  (click)="onSubmit()"
+                  [disabled]="!activityForm.valid || isLoading">
+                  <mat-progress-spinner *ngIf="isLoading" diameter="20"></mat-progress-spinner>
+                  {{ isLoading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Activity' : 'Create Activity') }}
+                </button>
+              </div>
+            </div>
+          </mat-step>
+        </mat-stepper>
+      </mat-dialog-content>
     </div>
   `,
   styles: [`
     .create-activity-dialog {
-      min-width: 500px;
-      max-width: 700px;
+      // width: 90px;
+      max-width: 120vw;
+      max-height: 90vh;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .dialog-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 24px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header-content {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .header-icon {
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .header-text h2 {
+      margin: 0 0 4px 0;
+      font-size: 24px;
+      font-weight: 500;
+    }
+
+    .header-text p {
+      margin: 0;
+      opacity: 0.9;
+      font-size: 14px;
+    }
+
+    .close-button {
+      color: white;
+      background: rgba(255,255,255,0.1);
+    }
+
+    .close-button:hover {
+      background: rgba(255,255,255,0.2);
+    }
+
+    .dialog-content {
+      padding: 0 !important;
+      min-height: 500px;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+
+    .step-form {
+      padding: 32px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .step-form h3 {
+      margin: 0 0 24px 0;
+      font-size: 20px;
+      font-weight: 500;
+      color: #333;
     }
 
     .full-width {
@@ -295,127 +358,121 @@ import { User, Activity, Attachment, ActivityLink } from '../../../models';
       margin-bottom: 16px;
     }
 
-    .assigned-members {
-      margin-top: 16px;
-    }
-
-    .assigned-members h4 {
-      margin-bottom: 8px;
-      color: #666;
-    }
-
-    mat-chip-listbox {
-      margin: 8px 0;
-    }
-
-    mat-dialog-content {
-      padding: 20px;
-      min-height: 400px;
-      max-height: 80vh;
-      overflow-y: auto;
-    }
-
-    mat-dialog-actions {
-      padding: 16px 20px;
-    }
-
-    .file-upload-section {
-      margin-top: 24px;
-      border-top: 1px solid #e0e0e0;
-      padding-top: 16px;
-    }
-
-    .file-upload-section h4 {
-      margin-bottom: 16px;
-      color: #666;
-    }
-
-    .file-input-container {
-      margin-bottom: 16px;
-    }
-
-    .upload-button {
-      margin-right: 16px;
-    }
-
-    .file-hint {
-      font-size: 12px;
-      color: #666;
-      line-height: 1.4;
-    }
-
-    .selected-files {
-      margin-top: 16px;
-    }
-
-    .selected-files h5 {
-      margin-bottom: 8px;
-      color: #666;
-      font-weight: 500;
-    }
-
-    .selected-files mat-list {
-      border: 1px solid #e0e0e0;
-      border-radius: 4px;
-      max-height: 200px;
-      overflow-y: auto;
-    }
-
-    .links-section {
-      margin-top: 20px;
-      border-top: 1px solid #e0e0e0;
-      padding-top: 16px;
-    }
-
-    .selected-links h5 {
-      margin-bottom: 8px;
-      color: #666;
-      font-weight: 500;
-    }
-
-    .selected-links mat-chip {
-      max-width: 300px;
-    }
-
-    .existing-attachments, .existing-links {
-      margin-top: 16px;
-    }
-
-    .existing-attachments h5, .existing-links h5 {
-      margin-bottom: 8px;
-      color: #666;
-      font-weight: 500;
-    }
-
-    .attachment-actions {
+    .step-actions {
+      margin-top: 32px;
       display: flex;
-      gap: 4px;
+      justify-content: flex-end;
+      gap: 12px;
     }
 
-    .link-actions {
-      display: flex;
-      gap: 4px;
-      margin-left: 8px;
+    .selected-members {
+      margin-top: 16px;
     }
 
-    .deleted {
-      opacity: 0.5;
-      text-decoration: line-through;
+    .selected-members h4 {
+      margin: 0 0 12px 0;
+      font-size: 16px;
+      font-weight: 500;
+      color: #333;
     }
 
-    mat-chip.deleted {
-      opacity: 0.6;
-      background-color: #ffebee !important;
+    .upload-section, .link-section {
+      margin-bottom: 24px;
     }
 
-    mat-list-item .deleted {
-      opacity: 0.5;
-      text-decoration: line-through;
+    .upload-section h4, .link-section h4 {
+      margin: 0 0 16px 0;
+      font-size: 16px;
+      font-weight: 500;
+      color: #333;
     }
+
+    .file-upload-area {
+      border: 2px dashed #ddd;
+      border-radius: 8px;
+      padding: 40px 20px;
+      text-align: center;
+      transition: all 0.3s ease;
+      background: #fafafa;
+    }
+
+    .file-upload-area:hover {
+      border-color: #667eea;
+      background: #f5f5f5;
+    }
+
+    .file-upload-area.dragover {
+      border-color: #667eea;
+      background: #e8f0fe;
+    }
+
+    .file-upload-area mat-icon {
+      font-size: 48px;
+      height: 48px;
+      width: 48px;
+      color: #666;
+      margin-bottom: 12px;
+    }
+
+    .file-upload-area p {
+      margin: 12px 0;
+      color: #666;
+    }
+
+    .selected-files, .selected-links {
+      margin-top: 16px;
+    }
+
+    .selected-files h5, .selected-links h5 {
+      margin: 0 0 12px 0;
+      font-size: 14px;
+      font-weight: 500;
+      color: #333;
+    }
+
+    .review-card {
+      margin-bottom: 24px;
+    }
+
+    .review-section {
+      margin-bottom: 16px;
+    }
+
+    .review-section h4 {
+      margin: 0 0 8px 0;
+      font-size: 16px;
+      font-weight: 500;
+      color: #333;
+    }
+
+    .review-section p {
+      margin: 0;
+      color: #666;
+    }
+
+    mat-stepper {
+      background: transparent;
+    }
+
+    .mat-step-header {
+      padding: 16px 24px;
+    }
+
+    ::ng-deep .mat-stepper-horizontal-line {
+      margin: 0 16px;
+      min-width:0px !important;
+    }
+
+    ::ng-deep .mat-mdc-dialog-title::before{
+      display:none;
+    }
+    
   `]
 })
 export class CreateActivityDialogComponent implements OnInit {
   activityForm: FormGroup;
+  basicInfoForm: FormGroup;
+  assignmentForm: FormGroup;
   teamMembers: User[] = [];
   selectedMembers: User[] = [];
   selectedFiles: File[] = [];
@@ -426,6 +483,7 @@ export class CreateActivityDialogComponent implements OnInit {
   linksToDelete: number[] = [];
   isLoading = false;
   isEditMode = false;
+  urlPattern = '^https?:\\/\\/.+';
 
   constructor(
     private fb: FormBuilder,
@@ -445,14 +503,29 @@ export class CreateActivityDialogComponent implements OnInit {
     this.teamMembers = data.members || [];
     this.isEditMode = data.isEdit || false;
     
-    // Initialize form without auto-adding current user (backend will handle this)
+    // Initialize main form
     this.activityForm = this.fb.group({
       name: ['', Validators.required],
       description: [''],
       priority: ['medium'],
-      targetDate: [null],
-      assignedUsers: [[]]  // Empty array - current user will be added automatically by backend
+      targetDate: [null, Validators.required],
+      assignedUsers: [[]]
     });
+
+    // Initialize stepper forms
+    this.basicInfoForm = this.fb.group({
+      name: ['', Validators.required],
+      description: [''],
+      priority: ['medium'],
+      targetDate: [null, Validators.required]
+    });
+
+    this.assignmentForm = this.fb.group({
+      assignedUsers: [[]]
+    });
+
+    // Sync forms
+    this.setupFormSync();
 
     // If editing, populate form with existing data
     if (this.isEditMode && data.activity) {
@@ -464,12 +537,42 @@ export class CreateActivityDialogComponent implements OnInit {
     this.setupFormSubscriptions();
   }
 
+  setupFormSync() {
+    // Sync stepper forms with main form
+    this.basicInfoForm.valueChanges.subscribe(value => {
+      this.activityForm.patchValue(value, { emitEvent: false });
+    });
+
+    this.assignmentForm.valueChanges.subscribe(value => {
+      this.activityForm.patchValue(value, { emitEvent: false });
+    });
+  }
+
   setupFormSubscriptions() {
-    this.activityForm.get('assignedUsers')?.valueChanges.subscribe(selectedIds => {
-      this.selectedMembers = this.getSelectableMembers().filter(member => 
-        selectedIds.includes(member.id)
+    // Watch for assigned users changes to update selected members display
+    this.assignmentForm.get('assignedUsers')?.valueChanges.subscribe(userIds => {
+      this.selectedMembers = this.teamMembers.filter(member => 
+        userIds.includes(member.id)
       );
     });
+  }
+
+  populateFormForEdit(activity: Activity) {
+    const formData = {
+      name: activity.name,
+      description: activity.description || '',
+      priority: activity.priority || 'medium',
+      targetDate: activity.targetDate ? new Date(activity.targetDate) : null,
+      assignedUsers: activity.assignedMembers?.map((user: any) => user.id) || []
+    };
+
+    this.activityForm.patchValue(formData);
+    this.basicInfoForm.patchValue(formData);
+    this.assignmentForm.patchValue({ assignedUsers: formData.assignedUsers });
+
+    // Set existing attachments and links
+    this.existingAttachments = activity.attachments || [];
+    this.existingLinks = activity.links || [];
   }
 
   getSelectableMembers(): User[] {
@@ -481,87 +584,101 @@ export class CreateActivityDialogComponent implements OnInit {
   }
 
   removeAssignedMember(memberId: string) {
-    const currentSelected = this.activityForm.get('assignedUsers')?.value || [];
+    const currentSelected = this.assignmentForm.get('assignedUsers')?.value || [];
     const updatedSelected = currentSelected.filter((id: string) => id !== memberId);
-    this.activityForm.patchValue({ assignedUsers: updatedSelected });
+    this.assignmentForm.patchValue({ assignedUsers: updatedSelected });
+  }
+
+  onDrop(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const files = event.dataTransfer?.files;
+    if (files) {
+      this.processFiles(Array.from(files));
+    }
+    
+    const uploadZone = event.target as HTMLElement;
+    uploadZone.classList.remove('dragover');
+  }
+
+  onDragOver(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    const uploadZone = event.target as HTMLElement;
+    uploadZone.classList.add('dragover');
+  }
+
+  onDragLeave(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    const uploadZone = event.target as HTMLElement;
+    uploadZone.classList.remove('dragover');
   }
 
   onFilesSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     if (input.files) {
       const newFiles = Array.from(input.files);
-      
-      // Validate file sizes (max 10MB per file)
-      const maxSize = 10 * 1024 * 1024; // 10MB
-      const validFiles = newFiles.filter(file => {
-        if (file.size > maxSize) {
-          this.snackBar.open(`File "${file.name}" is too large. Maximum size is 10MB.`, 'Close', { duration: 5000 });
-          return false;
-        }
-        return true;
-      });
-
-      // Add valid files to the selection
-      this.selectedFiles.push(...validFiles);
-      
+      this.processFiles(newFiles);
       // Reset input
       input.value = '';
-      
-      if (validFiles.length > 0) {
-        this.snackBar.open(`${validFiles.length} file(s) selected`, 'Close', { duration: 2000 });
-      }
     }
   }
 
-  removeFile(index: number) {
-    this.selectedFiles.splice(index, 1);
+  processFiles(files: File[]) {
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    const validFiles = files.filter(file => {
+      if (file.size > maxSize) {
+        this.snackBar.open('File "' + file.name + '" is too large. Maximum size is 10MB.', 'Close', { duration: 5000 });
+        return false;
+      }
+      return true;
+    });
+
+    this.selectedFiles = [...this.selectedFiles, ...validFiles];
+    
+    if (validFiles.length > 0) {
+      this.snackBar.open(validFiles.length + ' file(s) selected', 'Close', { duration: 2000 });
+    }
+  }
+
+  removeFile(fileToRemove: File) {
+    this.selectedFiles = this.selectedFiles.filter(file => file !== fileToRemove);
   }
 
   addLink(url: string) {
-    if (url && url.trim()) {
-      const trimmedUrl = url.trim();
-      
-      // Basic URL validation
-      try {
-        new URL(trimmedUrl);
-        if (!this.selectedLinks.includes(trimmedUrl)) {
-          this.selectedLinks.push(trimmedUrl);
-        } else {
-          this.snackBar.open('This link has already been added', 'Close', { duration: 2000 });
-        }
-      } catch {
-        this.snackBar.open('Please enter a valid URL', 'Close', { duration: 3000 });
-      }
+    if (!url.trim()) return;
+    
+    const urlRegex = new RegExp(this.urlPattern);
+    if (!urlRegex.test(url)) {
+      this.snackBar.open('Please enter a valid URL', 'Close', { duration: 3000 });
+      return;
     }
+    
+    if (this.selectedLinks.includes(url)) {
+      this.snackBar.open('This link has already been added', 'Close', { duration: 2000 });
+      return;
+    }
+    
+    this.selectedLinks.push(url);
   }
 
-  removeLink(index: number) {
-    this.selectedLinks.splice(index, 1);
+  removeLink(linkToRemove: string) {
+    this.selectedLinks = this.selectedLinks.filter(link => link !== linkToRemove);
   }
 
   getFileIcon(fileName: string): string {
     const extension = fileName.split('.').pop()?.toLowerCase();
     switch (extension) {
-      case 'pdf':
-        return 'picture_as_pdf';
-      case 'doc':
-      case 'docx':
-        return 'description';
-      case 'xls':
-      case 'xlsx':
-        return 'grid_on';
-      case 'ppt':
-      case 'pptx':
-        return 'slideshow';
-      case 'jpg':
-      case 'jpeg':
-      case 'png':
-      case 'gif':
-        return 'image';
-      case 'txt':
-        return 'text_snippet';
-      default:
-        return 'attachment';
+      case 'pdf': return 'picture_as_pdf';
+      case 'doc': case 'docx': return 'description';
+      case 'xls': case 'xlsx': return 'table_chart';
+      case 'ppt': case 'pptx': return 'slideshow';
+      case 'jpg': case 'jpeg': case 'png': case 'gif': return 'image';
+      case 'mp4': case 'avi': case 'mov': return 'movie';
+      case 'mp3': case 'wav': return 'audiotrack';
+      default: return 'insert_drive_file';
     }
   }
 
@@ -573,205 +690,67 @@ export class CreateActivityDialogComponent implements OnInit {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
-  formatDate(dateString: string): string {
-    const date = new Date(dateString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  getTruncatedUrl(url: string): string {
+    return url.length > 50 ? url.substring(0, 50) + '...' : url;
   }
 
-  // Methods for handling existing attachments
-  getActiveAttachments(): Attachment[] {
-    return this.existingAttachments.filter(att => !this.isAttachmentMarkedForDeletion(att.id));
-  }
-
-  isAttachmentMarkedForDeletion(attachmentId: string): boolean {
-    return this.attachmentsToDelete.includes(parseInt(attachmentId));
-  }
-
-  toggleAttachmentDeletion(attachmentId: string): void {
-    const id = parseInt(attachmentId);
-    const index = this.attachmentsToDelete.indexOf(id);
-    if (index > -1) {
-      this.attachmentsToDelete.splice(index, 1);
-    } else {
-      this.attachmentsToDelete.push(id);
+  async onSubmit() {
+    if (!this.activityForm.valid) {
+      this.snackBar.open('Please fill in all required fields', 'Close', { duration: 3000 });
+      return;
     }
-  }
 
-  downloadExistingAttachment(attachment: Attachment): void {
-    this.activityService.downloadAttachment(attachment.filename).subscribe({
-      next: (blob) => {
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = attachment.originalName;
-        link.click();
-        window.URL.revokeObjectURL(url);
-      },
-      error: (error) => {
-        console.error('Download failed:', error);
-        this.snackBar.open('Failed to download attachment', 'Close', { duration: 3000 });
+    this.isLoading = true;
+
+    try {
+      const currentUser = this.authService.getCurrentUser();
+      if (!currentUser) {
+        throw new Error('User not authenticated');
       }
-    });
-  }
 
-  // Methods for handling existing links
-  getActiveLinks(): ActivityLink[] {
-    return this.existingLinks.filter(link => !this.isLinkMarkedForDeletion(link.id));
-  }
-
-  isLinkMarkedForDeletion(linkId: string): boolean {
-    return this.linksToDelete.includes(parseInt(linkId));
-  }
-
-  toggleLinkDeletion(linkId: string): void {
-    const id = parseInt(linkId);
-    const index = this.linksToDelete.indexOf(id);
-    if (index > -1) {
-      this.linksToDelete.splice(index, 1);
-    } else {
-      this.linksToDelete.push(id);
-    }
-  }
-
-  openLink(url: string): void {
-    window.open(url, '_blank');
-  }
-
-  populateFormForEdit(activity: Activity) {
-    const currentUser = this.authService.getCurrentUser();
-    
-    // Filter out current user from assigned users since they're automatically included
-    let assignedUserIds = activity.assignedMembers?.map(m => m.id) || [];
-    if (currentUser) {
-      assignedUserIds = assignedUserIds.filter(id => id !== currentUser.id);
-    }
-    
-    this.activityForm.patchValue({
-      name: activity.name,
-      description: activity.description,
-      priority: activity.priority || 'medium',
-      targetDate: activity.targetDate ? new Date(activity.targetDate) : null,
-      assignedUsers: assignedUserIds
-    });
-
-    // Populate existing attachments and links
-    this.existingAttachments = activity.attachments || [];
-    this.existingLinks = activity.links || [];
-    
-    // Note: New files will be added to selectedFiles when user selects them
-    // New links will be added to selectedLinks when user adds them
-  }
-
-  onSubmit() {
-    if (this.isEditMode) {
-      this.onUpdateActivity();
-    } else {
-      this.onCreateActivity();
-    }
-  }
-
-  async onUpdateActivity() {
-    if (this.activityForm.valid && this.data.activity) {
-      this.isLoading = true;
+      const formData = new FormData();
       
-      try {
-        const formValue = this.activityForm.value;
-        
-        // Create FormData for file upload
-        const formData = new FormData();
-        
-        // Add basic activity data
-        formData.append('name', formValue.name);
-        formData.append('description', formValue.description || '');
-        formData.append('priority', formValue.priority);
-        
-        if (formValue.targetDate) {
-          formData.append('targetDate', new Date(formValue.targetDate).toISOString());
-        }
-        
-        // Add assigned users as JSON string
-        if (formValue.assignedUsers && formValue.assignedUsers.length > 0) {
-          formData.append('assignedUsers', JSON.stringify(formValue.assignedUsers));
-        }
-        
-        // Add files (only new ones)
-        this.selectedFiles.forEach((file, index) => {
-          formData.append('attachments', file);
-        });
-        
-        // Add links as JSON string (only new ones)
-        if (this.selectedLinks.length > 0) {
-          formData.append('newLinks', JSON.stringify(this.selectedLinks));
-        }
+      // Add basic form data
+      formData.append('name', this.activityForm.get('name')?.value);
+      formData.append('description', this.activityForm.get('description')?.value || '');
+      formData.append('priority', this.activityForm.get('priority')?.value);
+      formData.append('targetDate', this.activityForm.get('targetDate')?.value?.toISOString());
+      formData.append('teamId', this.data.teamId);
+      formData.append('createdBy', currentUser.id);
 
-        // Add deletions data
-        if (this.attachmentsToDelete.length > 0) {
-          formData.append('attachmentsToDelete', JSON.stringify(this.attachmentsToDelete));
-        }
+      // Add assigned users (always include the current user)
+      const assignedUserIds = this.activityForm.get('assignedUsers')?.value || [];
+      if (!assignedUserIds.includes(currentUser.id)) {
+        assignedUserIds.push(currentUser.id);
+      }
+      formData.append('assignedUsers', JSON.stringify(assignedUserIds));
 
-        if (this.linksToDelete.length > 0) {
-          formData.append('linksToDelete', JSON.stringify(this.linksToDelete));
-        }
+      // Add selected files
+      this.selectedFiles.forEach(file => {
+        formData.append('attachments', file);
+      });
 
-        // Use the update activity service method
-        await this.activityService.updateActivity(parseInt(this.data.activity.id), formData).toPromise();
-        
+      // Add selected links
+      if (this.selectedLinks.length > 0) {
+        formData.append('links', JSON.stringify(this.selectedLinks));
+      }
+
+      if (this.isEditMode && this.data.activity) {
+        // Update existing activity
+        await this.activityService.updateActivity(+this.data.activity.id!, formData).toPromise();
         this.snackBar.open('Activity updated successfully', 'Close', { duration: 3000 });
-        this.dialogRef.close(true);
-      } catch (error) {
-        console.error('Error updating activity:', error);
-        this.snackBar.open('Error updating activity', 'Close', { duration: 3000 });
-      } finally {
-        this.isLoading = false;
-      }
-    }
-  }
-
-  async onCreateActivity() {
-    if (this.activityForm.valid) {
-      this.isLoading = true;
-      
-      try {
-        const formValue = this.activityForm.value;
-        
-        // Create FormData for file upload
-        const formData = new FormData();
-        
-        // Add basic activity data
-        formData.append('name', formValue.name);
-        formData.append('description', formValue.description || '');
-        formData.append('priority', formValue.priority);
-        formData.append('team_id', this.data.teamId);
-        
-        if (formValue.targetDate) {
-          formData.append('targetDate', new Date(formValue.targetDate).toISOString());
-        }
-        
-        // Add assigned users as JSON string
-        if (formValue.assignedUsers && formValue.assignedUsers.length > 0) {
-          formData.append('assignedUsers', JSON.stringify(formValue.assignedUsers));
-        }
-        
-        // Add files
-        this.selectedFiles.forEach((file, index) => {
-          formData.append('attachments', file);
-        });
-        
-        // Add links as JSON string
-        if (this.selectedLinks.length > 0) {
-          formData.append('links', JSON.stringify(this.selectedLinks));
-        }
-
+      } else {
+        // Create new activity
         await this.activityService.createActivity(formData).toPromise();
-        
-        this.snackBar.open('Activity created successfully with attachments', 'Close', { duration: 3000 });
-        this.dialogRef.close(true);
-      } catch (error) {
-        console.error('Error creating activity:', error);
-        this.snackBar.open('Error creating activity', 'Close', { duration: 3000 });
-      } finally {
-        this.isLoading = false;
+        this.snackBar.open('Activity created successfully', 'Close', { duration: 3000 });
       }
+      
+      this.dialogRef.close(true);
+    } catch (error) {
+      console.error('Error saving activity:', error);
+      this.snackBar.open('Error saving activity', 'Close', { duration: 3000 });
+    } finally {
+      this.isLoading = false;
     }
   }
 

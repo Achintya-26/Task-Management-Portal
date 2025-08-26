@@ -9,6 +9,13 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatTableModule } from '@angular/material/table';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatBadgeModule } from '@angular/material/badge';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatRippleModule } from '@angular/material/core';
+import { MatGridListModule } from '@angular/material/grid-list';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { TeamService } from '../../services/team.service';
@@ -34,214 +41,372 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
     MatChipsModule,
     MatTabsModule,
     MatTableModule,
-    MatMenuModule
+    MatMenuModule,
+    MatProgressBarModule,
+    MatProgressSpinnerModule,
+    MatDividerModule,
+    MatBadgeModule,
+    MatTooltipModule,
+    MatRippleModule,
+    MatGridListModule
   ],
   template: `
     <div class="team-details-container" *ngIf="team">
-      <!-- Header -->
-      <div class="team-header">
-        <button mat-icon-button (click)="goBack()" class="back-button">
-          <mat-icon>arrow_back</mat-icon>
-        </button>
-        
-        <div class="header-content">
-          <div class="team-info">
-            <h1>{{ team.name }}</h1>
-            <p class="team-description">{{ team.description || 'No description available' }}</p>
-            <div class="team-meta">
-              <mat-chip-listbox>
-                <mat-chip>{{ team.members?.length || 0 }} Members</mat-chip>
-                <mat-chip>{{ activities.length }} Activities</mat-chip>
-                <mat-chip [class]="'progress-' + getProgressLevel()">
-                  {{ getTeamProgress() }}% Complete
-                </mat-chip>
-              </mat-chip-listbox>
+      <!-- Enhanced Hero Header -->
+      <div class="hero-header">
+        <div class="hero-background"></div>
+        <div class="hero-content">
+          <button mat-fab mini color="accent" (click)="goBack()" class="back-fab" matTooltip="Go back to teams">
+            <mat-icon>arrow_back</mat-icon>
+          </button>
+          
+          <div class="team-hero-info">
+            <div class="team-avatar-large">
+              <mat-icon>groups</mat-icon>
+            </div>
+            <div class="hero-text">
+              <h1>{{ team.name }}</h1>
+              <p class="team-description">{{ team.description || 'No description available' }}</p>
+              <div class="team-metrics">
+                <div class="metric-item">
+                  <mat-icon>people</mat-icon>
+                  <span class="metric-value">{{ team.members?.length || 0 }}</span>
+                  <span class="metric-label">Members</span>
+                </div>
+                <div class="metric-item">
+                  <mat-icon>assignment</mat-icon>
+                  <span class="metric-value">{{ activities.length }}</span>
+                  <span class="metric-label">Activities</span>
+                </div>
+                <div class="metric-item">
+                  <mat-icon>trending_up</mat-icon>
+                  <span class="metric-value">{{ getTeamProgress() }}%</span>
+                  <span class="metric-label">Progress</span>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="header-actions" *ngIf="canCreateActivity$ | async">
-          <button mat-raised-button color="primary" (click)="openCreateActivityDialog()">
-            <mat-icon>add</mat-icon>
-            Add Activity
-          </button>
-          <button mat-button [matMenuTriggerFor]="teamMenu" *ngIf="isAdmin$ | async">
-            <mat-icon>more_vert</mat-icon>
-          </button>
-          <mat-menu #teamMenu="matMenu">
-            <button mat-menu-item (click)="openAddMembersDialog()">
-              <mat-icon>person_add</mat-icon>
-              <span>Add Members</span>
+          <div class="hero-actions" *ngIf="canCreateActivity$ | async">
+            <button mat-fab color="primary" (click)="openCreateActivityDialog()" matTooltip="Create new activity">
+              <mat-icon>add</mat-icon>
             </button>
-            <!-- <button mat-menu-item (click)="openEditTeamDialog()">
-              <mat-icon>edit</mat-icon>
-              <span>Edit Team</span>
-            </button> -->
-          </mat-menu>
+            <button mat-stroked-button color="primary" [matMenuTriggerFor]="teamMenu" *ngIf="isAdmin$ | async">
+              <mat-icon>more_vert</mat-icon>
+              Team Actions
+            </button>
+            <mat-menu #teamMenu="matMenu">
+              <button mat-menu-item (click)="openAddMembersDialog()">
+                <mat-icon>person_add</mat-icon>
+                <span>Add Members</span>
+              </button>
+              <button mat-menu-item (click)="openEditTeamDialog()">
+                <mat-icon>edit</mat-icon>
+                <span>Edit Team</span>
+              </button>
+            </mat-menu>
+          </div>
         </div>
       </div>
 
-      <!-- Content Tabs -->
-      <mat-tab-group class="content-tabs">
+      <!-- Enhanced Stats Cards -->
+      <div class="stats-overview">
+        <mat-card class="stat-card activities-stat" matRipple>
+          <mat-card-content>
+            <div class="stat-icon-wrapper">
+              <mat-icon class="stat-icon">assignment</mat-icon>
+            </div>
+            <div class="stat-details">
+              <h3>{{ activities.length }}</h3>
+              <p>Total Activities</p>
+              <div class="stat-progress">
+                <mat-progress-bar mode="determinate" [value]="getTeamProgress()" color="primary"></mat-progress-bar>
+                <span>{{ getTeamProgress() }}% Complete</span>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card class="stat-card pending-stat" matRipple>
+          <mat-card-content>
+            <div class="stat-icon-wrapper">
+              <mat-icon class="stat-icon" [matBadge]="getPendingCount()" matBadgeColor="warn" 
+                        [matBadgeHidden]="getPendingCount() === 0">schedule</mat-icon>
+            </div>
+            <div class="stat-details">
+              <h3>{{ getPendingCount() }}</h3>
+              <p>Pending Tasks</p>
+              <span class="stat-trend" [class.urgent]="getPendingCount() > 5">
+                <mat-icon>{{ getPendingCount() > 5 ? 'warning' : 'schedule' }}</mat-icon>
+                {{ getPendingStatus() }}
+              </span>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card class="stat-card completed-stat" matRipple>
+          <mat-card-content>
+            <div class="stat-icon-wrapper">
+              <mat-icon class="stat-icon">check_circle</mat-icon>
+            </div>
+            <div class="stat-details">
+              <h3>{{ getCompletedCount() }}</h3>
+              <p>Completed</p>
+              <span class="stat-trend positive">
+                <mat-icon>trending_up</mat-icon>
+                {{ getCompletionRate() }}% Rate
+              </span>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card class="stat-card team-stat" matRipple>
+          <mat-card-content>
+            <div class="stat-icon-wrapper">
+              <mat-icon class="stat-icon">groups</mat-icon>
+            </div>
+            <div class="stat-details">
+              <h3>{{ team.members?.length || 0 }}</h3>
+              <p>Team Members</p>
+              <span class="stat-trend">
+                <mat-icon>people</mat-icon>
+                Active Team
+              </span>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+
+      <!-- Enhanced Content Tabs -->
+      <mat-tab-group class="content-tabs" animationDuration="300ms" (selectedTabChange)="onTabChange($event)">
         <!-- Activities Tab -->
-        <mat-tab label="Activities">
-          <div class="tab-content">
-            <div class="activities-header">
-              <h2>Team Activities</h2>
+        <mat-tab>
+          <ng-template mat-tab-label>
+            <mat-icon class="tab-icon">assignment</mat-icon>
+            Activities
+            <mat-chip class="tab-badge">{{ activities.length }}</mat-chip>
+          </ng-template>
+          
+          <div class="tab-content activities-tab">
+            <div class="content-header">
+              <div class="header-title">
+                <h2>Team Activities</h2>
+                <p>Manage and track team activities</p>
+              </div>
+              
               <div class="activity-filters">
                 <button 
-                  mat-chip 
+                  mat-chip-listbox 
                   [class.selected]="selectedStatus === ''"
                   (click)="setStatusFilter('')"
+                  matRipple
                 >
-                  All
+                  <mat-icon>view_list</mat-icon>
+                  All ({{ activities.length }})
                 </button>
                 <button 
-                  mat-chip 
+                  mat-chip-listbox
                   [class.selected]="selectedStatus === 'pending'"
                   (click)="setStatusFilter('pending')"
+                  matRipple
                 >
-                  Pending
+                  <mat-icon>schedule</mat-icon>
+                  Pending ({{ getPendingCount() }})
                 </button>
                 <button 
-                  mat-chip 
+                  mat-chip-listbox
                   [class.selected]="selectedStatus === 'in-progress'"
                   (click)="setStatusFilter('in-progress')"
+                  matRipple
                 >
-                  In Progress
+                  <mat-icon>play_circle</mat-icon>
+                  In Progress ({{ getInProgressCount() }})
                 </button>
                 <button 
-                  mat-chip 
+                  mat-chip-listbox
                   [class.selected]="selectedStatus === 'completed'"
                   (click)="setStatusFilter('completed')"
+                  matRipple
                 >
-                  Completed
+                  <mat-icon>check_circle</mat-icon>
+                  Completed ({{ getCompletedCount() }})
                 </button>
                 <button 
-                  mat-chip 
+                  mat-chip-listbox
                   [class.selected]="selectedStatus === 'on-hold'"
                   (click)="setStatusFilter('on-hold')"
+                  matRipple
                 >
-                  On Hold
+                  <mat-icon>pause_circle</mat-icon>
+                  On Hold ({{ getOnHoldCount() }})
                 </button>
               </div>
             </div>
 
-            <div class="activities-list" *ngIf="filteredActivities.length > 0; else noActivities">
+            <div class="activities-grid" *ngIf="filteredActivities.length > 0; else noActivities">
               <mat-card 
-                *ngFor="let activity of filteredActivities" 
-                class="activity-card"
+                *ngFor="let activity of filteredActivities; trackBy: trackByActivityId" 
+                class="activity-card enhanced"
                 [routerLink]="['/activities', activity.id]"
+                matRipple
               >
-                <mat-card-header>
-                  <mat-icon mat-card-avatar [class]="'status-icon-' + activity.status">
-                    {{ getActivityIcon(activity.status) }}
-                  </mat-icon>
-                  <mat-card-title>{{ activity.name }}</mat-card-title>
-                  <mat-card-subtitle>
-                    Created {{ formatDate(activity.createdAt) }}
-                    <span *ngIf="activity.targetDate"> • Due {{ formatDate(activity.targetDate) }}</span>
-                  </mat-card-subtitle>
-                </mat-card-header>
-
+                <div class="activity-header">
+                  <div class="activity-status-indicator" [class]="'status-' + activity.status"></div>
+                  <!-- <div class="activity-priority" [class]="'priority-' + (activity.priority || 'medium')"> -->
+                    <!-- <mat-icon>{{ getPriorityIcon(activity.priority || 'medium') }}</mat-icon> -->
+                  <!-- </div> -->
+                </div>
+                
                 <mat-card-content>
-                  <p class="activity-description">{{ activity.description }}</p>
-                  
-                  <div class="activity-details">
-                    <div class="detail-item">
-                      <mat-icon>people</mat-icon>
-                      <span>{{ getAssignedMembersText(activity.assignedMembers) }}</span>
-                    </div>
-                    <div class="detail-item">
-                      <mat-icon>attachment</mat-icon>
-                      <span>{{ getAttachmentsCount(activity) }} attachment(s)</span>
-                    </div>
-                    <div class="detail-item">
-                      <mat-icon>comment</mat-icon>
-                      <span>{{ getRemarksCount(activity) }} remark(s)</span>
-                    </div>
-                  </div>
-
-                  <div class="activity-status">
-                    <mat-chip [class]="'status-' + activity.status">
+                  <div class="activity-title-section">
+                    <h3>{{ activity.name }}</h3>
+                    <mat-chip class="status-chip" [class]="'status-' + activity.status">
                       {{ getStatusLabel(activity.status) }}
                     </mat-chip>
                   </div>
+                  
+                  <p class="activity-description">{{ activity.description }}</p>
+                  
+                  <div class="activity-metadata">
+                    <div class="metadata-row">
+                      <div class="metadata-item">
+                        <mat-icon class="small-icon">people</mat-icon>
+                        <span>{{ getAssignedMembersText(activity.assignedMembers) }}</span>
+                      </div>
+                      <div class="metadata-item">
+                        <mat-icon class="small-icon">schedule</mat-icon>
+                        <span class="due-date" [class]="getDueDateClass(activity.targetDate)">
+                          {{ formatDueDate(activity.targetDate) }}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div class="metadata-row">
+                      <div class="metadata-item">
+                        <mat-icon class="small-icon">attachment</mat-icon>
+                        <span>{{ getAttachmentsCount(activity) }} attachments</span>
+                      </div>
+                      <div class="metadata-item">
+                        <mat-icon class="small-icon">comment</mat-icon>
+                        <span>{{ getRemarksCount(activity) }} remarks</span>
+                      </div>
+                    </div>
+                  </div>
                 </mat-card-content>
 
+                <mat-divider></mat-divider>
+
                 <mat-card-actions>
-                  <button mat-button color="primary" [routerLink]="['/activities', activity.id]">
-                    View Details
+                  <button mat-button color="primary" [routerLink]="['/activities', activity.id]" 
+                          (click)="$event.stopPropagation()">
+                    <mat-icon>visibility</mat-icon>
+                    View
                   </button>
                   <button 
                     mat-button 
                     *ngIf="canEditActivity(activity)" 
                     (click)="openEditActivityDialog(activity); $event.stopPropagation()"
+                    matTooltip="Edit activity"
                   >
                     <mat-icon>edit</mat-icon>
                     Edit
                   </button>
                   <button 
                     mat-button 
+                    color="primary"
+                    *ngIf="canUpdateActivitySync(activity)" 
+                    [matMenuTriggerFor]="statusMenu"
+                    (click)="$event.stopPropagation()"
+                    matTooltip="Update status"
+                  >
+                    <mat-icon>update</mat-icon>
+                    Status
+                  </button>
+                  <mat-menu #statusMenu="matMenu">
+                    <button mat-menu-item (click)="updateActivityStatus(activity.id, 'pending')"
+                            [disabled]="activity.status === 'pending'">
+                      <mat-icon>schedule</mat-icon>
+                      Pending
+                    </button>
+                    <button mat-menu-item (click)="updateActivityStatus(activity.id, 'in-progress')"
+                            [disabled]="activity.status === 'in-progress'">
+                      <mat-icon>play_circle</mat-icon>
+                      In Progress
+                    </button>
+                    <button mat-menu-item (click)="updateActivityStatus(activity.id, 'completed')"
+                            [disabled]="activity.status === 'completed'">
+                      <mat-icon>check_circle</mat-icon>
+                      Completed
+                    </button>
+                    <button mat-menu-item (click)="updateActivityStatus(activity.id, 'on-hold')"
+                            [disabled]="activity.status === 'on-hold'">
+                      <mat-icon>pause_circle</mat-icon>
+                      On Hold
+                    </button>
+                  </mat-menu>
+                  <button 
+                    mat-button 
                     color="warn"
                     *ngIf="canEditActivity(activity)" 
                     (click)="deleteActivity(activity); $event.stopPropagation()"
+                    matTooltip="Delete activity"
                   >
                     <mat-icon>delete</mat-icon>
-                    Delete
                   </button>
-                  <button 
-                    mat-button 
-                    *ngIf="canUpdateActivitySync(activity)" 
-                    [matMenuTriggerFor]="activityMenu"
-                    (click)="$event.stopPropagation()"
-                  >
-                    Update Status
-                  </button>
-                  <mat-menu #activityMenu="matMenu">
-                    <button mat-menu-item (click)="updateActivityStatus(activity.id, 'pending')">
-                      Mark as Pending
-                    </button>
-                    <button mat-menu-item (click)="updateActivityStatus(activity.id, 'in-progress')">
-                      Mark as In Progress
-                    </button>
-                    <button mat-menu-item (click)="updateActivityStatus(activity.id, 'completed')">
-                      Mark as Completed
-                    </button>
-                    <button mat-menu-item (click)="updateActivityStatus(activity.id, 'on-hold')">
-                      Mark as On Hold
-                    </button>
-                  </mat-menu>
                 </mat-card-actions>
               </mat-card>
             </div>
 
             <ng-template #noActivities>
-              <mat-card class="empty-state">
+              <mat-card class="empty-state enhanced">
                 <mat-card-content>
-                  <mat-icon class="empty-icon">assignment</mat-icon>
-                  <h3>No Activities</h3>
-                  <p *ngIf="selectedStatus">No activities found with the selected status.</p>
-                  <p *ngIf="!selectedStatus">This team doesn't have any activities yet.</p>
-                  <button 
-                    *ngIf="(canCreateActivity$ | async) && !selectedStatus" 
-                    mat-raised-button 
-                    color="primary" 
-                    (click)="openCreateActivityDialog()"
-                  >
-                    Create First Activity
-                  </button>
+                  <div class="empty-content">
+                    <mat-icon class="empty-icon">assignment</mat-icon>
+                    <h3>No Activities Found</h3>
+                    <p *ngIf="selectedStatus">No activities found with the selected status filter.</p>
+                    <p *ngIf="!selectedStatus">This team doesn't have any activities yet. Create the first one!</p>
+                    <div class="empty-actions">
+                      <button 
+                        *ngIf="(canCreateActivity$ | async) && !selectedStatus" 
+                        mat-raised-button 
+                        color="primary" 
+                        (click)="openCreateActivityDialog()"
+                      >
+                        <mat-icon>add</mat-icon>
+                        Create First Activity
+                      </button>
+                      <button 
+                        *ngIf="selectedStatus" 
+                        mat-stroked-button 
+                        color="primary" 
+                        (click)="setStatusFilter('')"
+                      >
+                        <mat-icon>clear</mat-icon>
+                        Clear Filter
+                      </button>
+                    </div>
+                  </div>
                 </mat-card-content>
               </mat-card>
             </ng-template>
           </div>
         </mat-tab>
 
-        <!-- Members Tab -->
-        <mat-tab label="Members">
-          <div class="tab-content">
-            <div class="members-header">
-              <h2>Team Members</h2>
+        <!-- Enhanced Members Tab -->
+        <mat-tab>
+          <ng-template mat-tab-label>
+            <mat-icon class="tab-icon">groups</mat-icon>
+            Members
+            <mat-chip class="tab-badge">{{ team.members?.length || 0 }}</mat-chip>
+          </ng-template>
+          
+          <div class="tab-content members-tab">
+            <div class="content-header">
+              <div class="header-title">
+                <h2>Team Members</h2>
+                <p>Manage team members and their activities</p>
+              </div>
+              
               <button 
                 *ngIf="isAdmin$ | async" 
                 mat-raised-button 
@@ -254,35 +419,67 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
             </div>
 
             <div class="members-grid">
-              <mat-card *ngFor="let member of team.members" class="member-card">
+              <mat-card *ngFor="let member of team.members; trackBy: trackByMemberId" class="member-card enhanced" matRipple>
+                <div class="member-header">
+                  <div class="member-avatar">
+                    <mat-icon>person</mat-icon>
+                  </div>
+                  <div class="member-status">
+                    <mat-chip class="status-active">Active</mat-chip>
+                  </div>
+                </div>
+                
                 <mat-card-content>
                   <div class="member-info">
-                    <div class="member-avatar">
-                      <mat-icon>person</mat-icon>
-                    </div>
-                    <div class="member-details">
-                      <h3>{{ member.name }}</h3>
-                      <p class="member-id">{{ member.empId }}</p>
-                      <!-- <p class="member-joined">Joined {{ formatDate(member.addedAt) }}</p> -->
-                    </div>
+                    <h3>{{ member.name }}</h3>
+                    <p class="member-id">ID: {{ member.empId }}</p>
+                    <p class="member-role">Team Member</p>
                   </div>
-                  <div class="member-stats">
-                    <div class="stat-item">
-                      <span class="stat-label">Assigned Activities</span>
-                      <span class="stat-value">{{ getMemberActivityCount(member.userId) }}</span>
+                  
+                  <mat-divider></mat-divider>
+                  
+                  <div class="member-statistics">
+                    <div class="stat-row">
+                      <div class="stat-item">
+                        <mat-icon class="stat-icon">assignment</mat-icon>
+                        <div class="stat-content">
+                          <span class="stat-value">{{ getMemberActivityCount(member.userId) }}</span>
+                          <span class="stat-label">Assigned</span>
+                        </div>
+                      </div>
+                      <div class="stat-item">
+                        <mat-icon class="stat-icon completed">check_circle</mat-icon>
+                        <div class="stat-content">
+                          <span class="stat-value">{{ getMemberCompletedCount(member.userId) }}</span>
+                          <span class="stat-label">Completed</span>
+                        </div>
+                      </div>
                     </div>
-                    <div class="stat-item">
-                      <span class="stat-label">Completed</span>
-                      <span class="stat-value">{{ getMemberCompletedCount(member.userId) }}</span>
+                    
+                    <div class="member-progress">
+                      <span class="progress-label">Completion Rate</span>
+                      <mat-progress-bar 
+                        mode="determinate" 
+                        [value]="getMemberCompletionRate(member.userId)"
+                        color="primary">
+                      </mat-progress-bar>
+                      <span class="progress-value">{{ getMemberCompletionRate(member.userId) }}%</span>
                     </div>
                   </div>
                 </mat-card-content>
+                
                 <mat-card-actions *ngIf="isAdmin$ | async">
+                  <button mat-button color="primary" matTooltip="View member activities">
+                    <mat-icon>visibility</mat-icon>
+                    Activities
+                  </button>
                   <button 
                     mat-button 
                     color="warn" 
                     (click)="removeMember(member.id)"
+                    matTooltip="Remove from team"
                   >
+                    <mat-icon>remove_circle</mat-icon>
                     Remove
                   </button>
                 </mat-card-actions>
@@ -293,218 +490,606 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
       </mat-tab-group>
     </div>
 
+    <!-- Loading State -->
     <div class="loading-state" *ngIf="!team && isLoading">
-      <mat-icon>groups</mat-icon>
+      <mat-spinner diameter="50"></mat-spinner>
       <p>Loading team details...</p>
     </div>
 
+    <!-- Error State -->
     <div class="error-state" *ngIf="!team && !isLoading">
-      <mat-icon>error</mat-icon>
-      <p>Failed to load team details</p>
+      <mat-icon class="error-icon">error_outline</mat-icon>
+      <h3>Failed to load team details</h3>
+      <p>There was an error loading the team information.</p>
       <button mat-raised-button color="primary" (click)="goBack()">
+        <mat-icon>arrow_back</mat-icon>
         Go Back to Teams
       </button>
     </div>
   `,
   styles: [`
     .team-details-container {
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
       padding: 24px;
       margin-top: 64px;
+      background: #f8f9fa;
+      min-height: calc(100vh - 64px);
     }
 
-    .team-header {
-      display: flex;
-      align-items: flex-start;
-      gap: 16px;
+    /* Enhanced Hero Header */
+    .hero-header {
+      position: relative;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 48px;
+      border-radius: 20px;
       margin-bottom: 32px;
-      padding: 24px;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      box-shadow: 0 16px 48px rgba(0,0,0,0.1);
+      overflow: hidden;
     }
 
-    .back-button {
-      margin-top: 8px;
+    .hero-background {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>') repeat;
+      opacity: 0.3;
     }
 
-    .header-content {
+    .hero-content {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      z-index: 1;
+    }
+
+    .back-fab {
+      flex-shrink: 0;
+      background: rgba(255,255,255,0.2);
+      color: white;
+    }
+
+    .team-hero-info {
+      display: flex;
+      align-items: center;
+      gap: 24px;
       flex: 1;
     }
 
-    .team-info h1 {
+    .team-avatar-large {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(10px);
+    }
+
+    .team-avatar-large mat-icon {
+      font-size: 40px;
+      height: 40px;
+      width: 40px;
+    }
+
+    .hero-text h1 {
+      font-size: 36px;
+      font-weight: 300;
+      margin: 0 0 8px 0;
+    }
+
+    .team-description {
+      font-size: 16px;
+      opacity: 0.9;
+      margin: 0 0 20px 0;
+      line-height: 1.5;
+    }
+
+    .team-metrics {
+      display: flex;
+      gap: 32px;
+    }
+
+    .metric-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .metric-item mat-icon {
+      font-size: 20px;
+      height: 20px;
+      width: 20px;
+      opacity: 0.8;
+    }
+
+    .metric-value {
+      font-size: 24px;
+      font-weight: 500;
+    }
+
+    .metric-label {
+      font-size: 12px;
+      opacity: 0.8;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      align-items: flex-end;
+    }
+
+    /* Enhanced Stats Overview */
+    .stats-overview {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      border-radius: 16px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 16px 48px rgba(0,0,0,0.15);
+    }
+
+    .stat-card.activities-stat {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .stat-card.pending-stat {
+      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+      color: white;
+    }
+
+    .stat-card.completed-stat {
+      background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+      color: white;
+    }
+
+    .stat-card.team-stat {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+    }
+
+    .stat-card mat-card-content {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 24px !important;
+    }
+
+    .stat-icon-wrapper {
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stat-icon {
+      font-size: 32px;
+      height: 32px;
+      width: 32px;
+    }
+
+    .stat-details {
+      flex: 1;
+    }
+
+    .stat-details h3 {
+      font-size: 32px;
+      font-weight: 300;
+      margin: 0 0 4px 0;
+    }
+
+    .stat-details p {
+      font-size: 14px;
+      margin: 0 0 12px 0;
+      opacity: 0.9;
+    }
+
+    .stat-progress {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .stat-progress mat-progress-bar {
+      flex: 1;
+      height: 6px;
+      border-radius: 3px;
+    }
+
+    .stat-progress span {
+      font-size: 12px;
+      opacity: 0.9;
+      min-width: 70px;
+    }
+
+    .stat-trend {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      opacity: 0.9;
+    }
+
+    .stat-trend mat-icon {
+      font-size: 16px;
+      height: 16px;
+      width: 16px;
+    }
+
+    .stat-trend.positive {
+      color: #4caf50;
+    }
+
+    .stat-trend.urgent {
+      color: #ff5722;
+    }
+
+    /* Enhanced Content Tabs */
+    .content-tabs {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+
+    .content-tabs ::ng-deep .mat-mdc-tab-group {
+      border-radius: 16px;
+    }
+
+    .content-tabs ::ng-deep .mat-mdc-tab-header {
+      background: #f8f9fa;
+      border-radius: 16px 16px 0 0;
+    }
+
+    .tab-icon {
+      margin-right: 8px;
+      font-size: 18px;
+      height: 18px;
+      width: 18px;
+    }
+
+    .tab-badge {
+      margin-left: 8px;
+      background: #e3f2fd;
+      color: #1976d2;
+      font-size: 11px;
+      height: 18px;
+    }
+
+    .tab-content {
+      padding: 32px;
+    }
+
+    .content-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 32px;
+      gap: 24px;
+    }
+
+    .header-title h2 {
       font-size: 28px;
       font-weight: 400;
       margin: 0 0 8px 0;
       color: #333;
     }
 
-    .team-description {
+    .header-title p {
       font-size: 16px;
       color: #666;
-      margin: 0 0 16px 0;
-    }
-
-    .team-meta .mat-chip {
-      margin-right: 8px;
-    }
-
-    .progress-high { background-color: #4caf50; color: white; }
-    .progress-medium { background-color: #ff9800; color: white; }
-    .progress-low { background-color: #f44336; color: white; }
-
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .content-tabs {
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-
-    .tab-content {
-      padding: 24px;
-    }
-
-    .activities-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
-    }
-
-    .activities-header h2 {
-      font-size: 20px;
-      font-weight: 400;
       margin: 0;
-      color: #333;
     }
 
+    /* Enhanced Activity Filters */
     .activity-filters {
       display: flex;
-      gap: 8px;
+      gap: 12px;
       flex-wrap: wrap;
     }
 
-    .activity-filters button[mat-chip] {
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .activity-filters button[mat-chip].selected {
-      background-color: #2196f3;
-      color: white;
-    }
-
-    .activities-list {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    .activity-card {
-      cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .activity-card:hover {
-      transform: translateX(4px);
-      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-    }
-
-    .status-icon-pending { color: #ff9800; }
-    .status-icon-in-progress { color: #2196f3; }
-    .status-icon-completed { color: #4caf50; }
-    .status-icon-on-hold { color: #f44336; }
-
-    .activity-description {
-      font-size: 14px;
-      color: #666;
-      margin-bottom: 16px;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-
-    .activity-details {
-      display: flex;
-      gap: 24px;
-      margin-bottom: 16px;
-    }
-
-    .detail-item {
+    .activity-filters button {
+      border: 1px solid #e0e0e0;
+      border-radius: 20px;
+      padding: 8px 16px;
       display: flex;
       align-items: center;
-      gap: 4px;
-      font-size: 12px;
+      gap: 8px;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      background: white;
       color: #666;
     }
 
-    .detail-item mat-icon {
+    .activity-filters button:hover {
+      border-color: #667eea;
+      color: #667eea;
+      background: #f3f4ff;
+    }
+
+    .activity-filters button.selected {
+      background: #667eea;
+      color: white;
+      border-color: #667eea;
+    }
+
+    .activity-filters button mat-icon {
       font-size: 16px;
       height: 16px;
       width: 16px;
     }
 
-    .activity-status {
-      margin-bottom: 8px;
+    /* Enhanced Activities Grid */
+    .activities-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: 24px;
     }
 
-    .status-pending { background-color: #ff9800; color: white; }
-    .status-in-progress { background-color: #2196f3; color: white; }
-    .status-completed { background-color: #4caf50; color: white; }
-    .status-on-hold { background-color: #f44336; color: white; }
+    .activity-card.enhanced {
+      border-radius: 16px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      position: relative;
+      border: 1px solid #e0e0e0;
+    }
 
-    .members-header {
+    .activity-card.enhanced:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 16px 48px rgba(0,0,0,0.12);
+      border-color: #667eea;
+    }
+
+    .activity-header {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      display: flex;
+      gap: 8px;
+      z-index: 1;
+    }
+
+    .activity-status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .activity-status-indicator.status-pending {
+      background: #ff9800;
+    }
+
+    .activity-status-indicator.status-in-progress {
+      background: #2196f3;
+    }
+
+    .activity-status-indicator.status-completed {
+      background: #4caf50;
+    }
+
+    .activity-status-indicator.status-on-hold {
+      background: #f44336;
+    }
+
+    .activity-priority {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .activity-priority.priority-high {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    .activity-priority.priority-medium {
+      background: #fff3e0;
+      color: #ef6c00;
+    }
+
+    .activity-priority.priority-low {
+      background: #e8f5e8;
+      color: #2e7d2e;
+    }
+
+    .activity-priority mat-icon {
+      font-size: 14px;
+      height: 14px;
+      width: 14px;
+    }
+
+    .activity-card mat-card-content {
+      padding: 20px !important;
+    }
+
+    .activity-title-section {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
+      align-items: flex-start;
+      margin-bottom: 16px;
+      gap: 16px;
     }
 
-    .members-header h2 {
-      font-size: 20px;
-      font-weight: 400;
+    .activity-title-section h3 {
+      font-size: 18px;
+      font-weight: 600;
       margin: 0;
       color: #333;
+      flex: 1;
+      line-height: 1.3;
     }
 
-    .members-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 16px;
+    .status-chip {
+      font-size: 11px;
+      height: 24px;
+      flex-shrink: 0;
     }
 
-    .member-card {
-      height: 100%;
+    .status-chip.status-pending { 
+      background-color: #fff3e0; 
+      color: #ef6c00; 
+    }
+    
+    .status-chip.status-in-progress { 
+      background-color: #e3f2fd; 
+      color: #1976d2; 
+    }
+    
+    .status-chip.status-completed { 
+      background-color: #e8f5e8; 
+      color: #2e7d2e; 
+    }
+    
+    .status-chip.status-on-hold { 
+      background-color: #ffebee; 
+      color: #c62828; 
     }
 
-    .member-info {
-      display: flex;
-      align-items: center;
-      gap: 16px;
+    .activity-description {
+      font-size: 14px;
+      color: #666;
+      line-height: 1.6;
+      margin: 0 0 20px 0;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .activity-metadata {
       margin-bottom: 16px;
     }
 
+    .metadata-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .metadata-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #666;
+      flex: 1;
+    }
+
+    .small-icon {
+      font-size: 16px;
+      height: 16px;
+      width: 16px;
+    }
+
+    .due-date.overdue {
+      color: #f44336;
+    }
+
+    .due-date.due-soon {
+      color: #ff9800;
+    }
+
+    .due-date.due-later {
+      color: #5b79f7;
+    }
+
+    .activity-card mat-card-actions {
+      padding: 16px 20px !important;
+      background: #f8f9fa;
+    }
+
+    /* Enhanced Members Grid */
+    .members-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 24px;
+    }
+
+    .member-card.enhanced {
+      border-radius: 16px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      border: 1px solid #e0e0e0;
+    }
+
+    .member-card.enhanced:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.1);
+      border-color: #667eea;
+    }
+
+    .member-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 20px 16px;
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    }
+
     .member-avatar {
-      width: 48px;
-      height: 48px;
+      width: 56px;
+      height: 56px;
       border-radius: 50%;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       display: flex;
       align-items: center;
       justify-content: center;
       color: white;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
     }
 
-    .member-details h3 {
-      font-size: 16px;
-      font-weight: 500;
+    .member-avatar mat-icon {
+      font-size: 28px;
+      height: 28px;
+      width: 28px;
+    }
+
+    .member-status .status-active {
+      background: #e8f5e8;
+      color: #2e7d2e;
+      font-size: 11px;
+      height: 20px;
+    }
+
+    .member-card mat-card-content {
+      padding: 0 20px 16px !important;
+    }
+
+    .member-info {
+      margin-bottom: 16px;
+    }
+
+    .member-info h3 {
+      font-size: 18px;
+      font-weight: 600;
       margin: 0 0 4px 0;
       color: #333;
     }
@@ -512,111 +1097,289 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
     .member-id {
       font-size: 12px;
       color: #666;
-      margin: 0 0 2px 0;
+      margin: 0 0 4px 0;
     }
 
-    .member-joined {
-      font-size: 11px;
-      color: #999;
+    .member-role {
+      font-size: 13px;
+      color: #888;
       margin: 0;
     }
 
-    .member-stats {
+    .member-statistics {
+      margin-top: 16px;
+    }
+
+    .stat-row {
       display: flex;
-      justify-content: space-between;
-    }
-
-    .stat-item {
-      text-align: center;
-    }
-
-    .stat-label {
-      display: block;
-      font-size: 11px;
-      color: #666;
-      margin-bottom: 4px;
-    }
-
-    .stat-value {
-      display: block;
-      font-size: 18px;
-      font-weight: 500;
-      color: #333;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 48px 24px;
-      background: #fafafa;
-    }
-
-    .empty-icon {
-      font-size: 64px;
-      height: 64px;
-      width: 64px;
-      color: #ddd;
+      gap: 24px;
       margin-bottom: 16px;
     }
 
-    .empty-state h3 {
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .stat-item .stat-icon {
       font-size: 18px;
-      font-weight: 400;
+      height: 18px;
+      width: 18px;
       color: #666;
-      margin: 0 0 8px 0;
     }
 
-    .empty-state p {
-      font-size: 14px;
-      color: #999;
+    .stat-item .stat-icon.completed {
+      color: #4caf50;
+    }
+
+    .stat-content {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-value {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: #666;
+    }
+
+    .member-progress {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .progress-label {
+      font-size: 12px;
+      color: #666;
+      font-weight: 500;
+    }
+
+    .member-progress mat-progress-bar {
+      height: 6px;
+      border-radius: 3px;
+    }
+
+    .progress-value {
+      font-size: 12px;
+      color: #666;
+      font-weight: 500;
+      align-self: flex-end;
+    }
+
+    .member-card mat-card-actions {
+      padding: 16px 20px !important;
+      background: #f8f9fa;
+    }
+
+    /* Enhanced Empty States */
+    .empty-state.enhanced {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      border: 2px dashed #dee2e6;
+      border-radius: 20px;
+      text-align: center;
+      padding: 60px 40px;
+    }
+
+    .empty-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .empty-icon {
+      font-size: 80px;
+      height: 80px;
+      width: 80px;
+      color: #adb5bd;
+      margin-bottom: 16px;
+    }
+
+    .empty-content h3 {
+      font-size: 24px;
+      font-weight: 500;
+      color: #495057;
+      margin: 0;
+    }
+
+    .empty-content p {
+      font-size: 16px;
+      color: #6c757d;
       margin: 0 0 24px 0;
+      max-width: 400px;
+      line-height: 1.5;
     }
 
+    .empty-actions {
+      display: flex;
+      gap: 16px;
+    }
+
+    /* Loading and Error States */
     .loading-state {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 300px;
+      height: 400px;
       color: #666;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05);
     }
 
-    .loading-state mat-icon {
-      font-size: 48px;
-      height: 48px;
-      width: 48px;
+    .loading-state p {
+      margin-top: 16px;
+      font-size: 16px;
+    }
+
+    .error-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 400px;
+      color: #666;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+      text-align: center;
+      padding: 40px;
+    }
+
+    .error-icon {
+      font-size: 64px;
+      height: 64px;
+      width: 64px;
+      color: #f44336;
       margin-bottom: 16px;
+    }
+
+    .error-state h3 {
+      font-size: 20px;
+      font-weight: 500;
+      color: #333;
+      margin: 0 0 8px 0;
+    }
+
+    .error-state p {
+      font-size: 14px;
+      color: #666;
+      margin: 0 0 24px 0;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 1024px) {
+      .stats-overview {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      
+      .activities-grid {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      }
     }
 
     @media (max-width: 768px) {
       .team-details-container {
         padding: 16px;
+        margin-top: 56px;
       }
 
-      .team-header {
+      .hero-content {
         flex-direction: column;
-        align-items: stretch;
+        text-align: center;
+        gap: 24px;
+      }
+
+      .team-hero-info {
+        flex-direction: column;
+        text-align: center;
+      }
+
+      .hero-actions {
+        align-items: center;
+        flex-direction: row;
+        justify-content: center;
+      }
+
+      .team-metrics {
+        justify-content: center;
+      }
+
+      .stats-overview {
+        grid-template-columns: 1fr;
         gap: 16px;
       }
 
-      .activities-header {
+      .content-header {
         flex-direction: column;
         align-items: stretch;
-        gap: 16px;
+        gap: 20px;
       }
 
-      .members-header {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 16px;
+      .activity-filters {
+        justify-content: center;
+      }
+
+      .activities-grid {
+        grid-template-columns: 1fr;
       }
 
       .members-grid {
         grid-template-columns: 1fr;
       }
 
-      .activity-details {
+      .tab-content {
+        padding: 20px;
+      }
+
+      .metadata-row {
         flex-direction: column;
         gap: 8px;
+      }
+
+      .stat-row {
+        justify-content: space-around;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .hero-header {
+        padding: 32px 24px;
+      }
+
+      .hero-text h1 {
+        font-size: 28px;
+      }
+
+      .team-metrics {
+        gap: 20px;
+      }
+
+      .metric-value {
+        font-size: 20px;
+      }
+
+      .activity-title-section {
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .empty-state.enhanced {
+        padding: 40px 24px;
+      }
+
+      .empty-actions {
+        flex-direction: column;
+        width: 100%;
       }
     }
   `]
@@ -741,6 +1504,92 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
         }
       })
     );
+  }
+
+  // Enhanced helper methods
+  getPendingCount(): number {
+    return this.activities.filter(a => a.status === 'pending').length;
+  }
+
+  getCompletedCount(): number {
+    return this.activities.filter(a => a.status === 'completed').length;
+  }
+
+  getInProgressCount(): number {
+    return this.activities.filter(a => a.status === 'in-progress').length;
+  }
+
+  getOnHoldCount(): number {
+    return this.activities.filter(a => a.status === 'on-hold').length;
+  }
+
+  getPendingStatus(): string {
+    const pending = this.getPendingCount();
+    if (pending === 0) return 'All caught up!';
+    if (pending <= 2) return 'Under control';
+    if (pending <= 5) return 'Getting busy';
+    return 'High workload';
+  }
+
+  getCompletionRate(): number {
+    if (this.activities.length === 0) return 0;
+    return Math.round((this.getCompletedCount() / this.activities.length) * 100);
+  }
+
+  getPriorityIcon(priority: string): string {
+    const icons: { [key: string]: string } = {
+      'high': 'priority_high',
+      'medium': 'remove',
+      'low': 'keyboard_arrow_down'
+    };
+    return icons[priority] || 'remove';
+  }
+
+  getDueDateClass(targetDate: string | null): string {
+    if (!targetDate) return 'due-later';
+    
+    const due = new Date(targetDate);
+    const now = new Date();
+    const diffTime = due.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return 'overdue';
+    if (diffDays <= 2) return 'due-soon';
+    return 'due-later';
+  }
+
+  formatDueDate(dateString: string | null): string {
+    if (!dateString) return 'No due date';
+    
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = date.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return `Overdue by ${Math.abs(diffDays)} days`;
+    if (diffDays === 0) return 'Due today';
+    if (diffDays === 1) return 'Due tomorrow';
+    return `Due in ${diffDays} days`;
+  }
+
+  getMemberCompletionRate(userId: string): number {
+    const assigned = this.getMemberActivityCount(userId);
+    const completed = this.getMemberCompletedCount(userId);
+    if (assigned === 0) return 0;
+    return Math.round((completed / assigned) * 100);
+  }
+
+  onTabChange(event: any): void {
+    // Handle tab change if needed
+    console.log('Tab changed to:', event.index);
+  }
+
+  trackByActivityId(index: number, activity: Activity): string {
+    return activity.id;
+  }
+
+  trackByMemberId(index: number, member: any): string {
+    return member.id || member.userId;
   }
 
   setupSocketListeners(teamId: string) {

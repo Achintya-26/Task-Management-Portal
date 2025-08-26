@@ -27,3 +27,24 @@ html {
 
 html, body { height: 100%; }
 body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+
+/* Kill the focus overlay that shows as a border */
+.mat-mdc-chip-focus-overlay {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Kill the default MDC outline */
+.mdc-evolution-chip__cell,
+.mdc-evolution-chip__action,
+.mdc-evolution-chip__outline {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Sometimes Angular MDC applies ::before borders */
+.mdc-evolution-chip::before,
+.mdc-evolution-chip__action::before,
+.mdc-evolution-chip__outline::before {
+  border: none !important;
+}
