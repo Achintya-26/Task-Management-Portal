@@ -111,13 +111,28 @@ export interface Remark {
 }
 
 export interface Notification {
-  id: string;
-  type: string;
+  id: number;
+  userId: number;
   title: string;
   message: string;
-  userId: string;
-  teamId?: string;
-  activityId?: string;
-  read: boolean;
+  type: string;
+  isRead: boolean;
+  relatedTeamId?: number;
+  relatedActivityId?: number;
   createdAt: string;
+  updatedAt: string;
+  user: {
+    id: number;
+    empId: string;
+    name: string;
+    role: string;
+  };
+  relatedTeam?: any;
+  relatedActivity?: any;
+  unread: boolean;
+  
+  // Computed properties for backward compatibility
+  read?: boolean;
+  teamId?: number;
+  activityId?: number;
 }

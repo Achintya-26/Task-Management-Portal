@@ -50,7 +50,7 @@ export class NotificationService {
     this.websocket = new WebSocket(wsUrl);
 
     this.websocket.onopen = () => {
-      console.log('WebSocket connected for notifications');
+      // console.log('WebSocket connected for notifications');
       this.connectionSubject.next(true);
       this.reconnectAttempts = 0;
     };
@@ -58,13 +58,13 @@ export class NotificationService {
     this.websocket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('WebSocket message received:', data);
+        // console.log('WebSocket message received:', data);
 
         if (data.type === 'notification') {
           this.notificationSubject.next(data.data);
           this.updateUnreadCount();
         } else if (data.type === 'connection') {
-          console.log('WebSocket connection confirmed:', data.message);
+          // console.log('WebSocket connection confirmed:', data.message);
         }
       } catch (error) {
         console.error('Error parsing WebSocket message:', error);
@@ -72,7 +72,7 @@ export class NotificationService {
     };
 
     this.websocket.onclose = (event) => {
-      console.log('WebSocket connection closed:', event.reason);
+      // console.log('WebSocket connection closed:', event.reason);
       this.connectionSubject.next(false);
       
       if (this.reconnectAttempts < this.maxReconnectAttempts) {

@@ -1,11 +1,12 @@
 import { Component, Inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormControl } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule, MAT_DATE_LOCALE } from '@angular/material/core';
 import { MatIconModule } from '@angular/material/icon';
@@ -24,6 +25,8 @@ import { ActivityService } from '../../../services/activity.service';
 import { AuthService } from '../../../services/auth.service';
 import { TeamService } from '../../../services/team.service';
 import { User, Activity, Attachment, ActivityLink } from '../../../models';
+import { Observable } from 'rxjs';
+import { map, startWith } from 'rxjs/operators';
 
 @Component({
   selector: 'app-create-activity-dialog',
@@ -36,6 +39,7 @@ import { User, Activity, Attachment, ActivityLink } from '../../../models';
     MatFormFieldModule,
     MatSelectModule,
     MatInputModule,
+    MatAutocompleteModule,
     MatDatepickerModule,
     MatNativeDateModule,
     MatIconModule,
@@ -127,13 +131,24 @@ import { User, Activity, Attachment, ActivityLink } from '../../../models';
               <h3>Team Members</h3>
               
               <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Select Team Members</mat-label>
-                <mat-select formControlName="assignedUsers" multiple>
-                  <mat-option *ngFor="let member of getSelectableMembers()" [value]="member.id">
-                    {{ member.name }} ({{ member.empId }})
+                <mat-label>Search and select team members</mat-label>
+                <input matInput
+                       [formControl]="memberSearchControl"
+                       [matAutocomplete]="memberAutocomplete"
+                       placeholder="Type member name or employee ID">
+                <mat-autocomplete #memberAutocomplete="matAutocomplete" 
+                                 [displayWith]="displayMember"
+                                 (optionSelected)="onMemberSelected($event)">
+                  <mat-option *ngFor="let member of filteredMembers | async" [value]="member">
+                    <div class="member-option">
+                      <div class="member-info">
+                        <span class="member-name">{{ member.name }}</span>
+                        <span class="member-id">({{ member.empId }})</span>
+                      </div>
+                    </div>
                   </mat-option>
-                </mat-select>
-                <mat-hint>Select members to assign to this activity</mat-hint>
+                </mat-autocomplete>
+                <mat-hint>Search by name or employee ID to add team members</mat-hint>
               </mat-form-field>
 
               <div class="selected-members" *ngIf="selectedMembers.length > 0">
@@ -409,6 +424,29 @@ import { User, Activity, Attachment, ActivityLink } from '../../../models';
       color: #333;
     }
 
+    .member-option {
+      display: flex;
+      align-items: center;
+      padding: 8px 0;
+    }
+
+    .member-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .member-name {
+      font-weight: 500;
+      color: #333;
+    }
+
+    .member-id {
+      font-size: 0.875rem;
+      color: #666;
+      opacity: 0.8;
+    }
+
     .upload-section, .link-section {
       margin-bottom: 24px;
     }
@@ -511,6 +549,8 @@ export class CreateActivityDialogComponent implements OnInit {
   activityForm: FormGroup;
   basicInfoForm: FormGroup;
   assignmentForm: FormGroup;
+  memberSearchControl = new FormControl('');
+  filteredMembers: Observable<User[]>;
   teamMembers: User[] = [];
   selectedMembers: User[] = [];
   selectedFiles: File[] = [];
@@ -564,6 +604,12 @@ export class CreateActivityDialogComponent implements OnInit {
 
     // Sync forms
     this.setupFormSync();
+
+    // Initialize filtered members for autocomplete
+    this.filteredMembers = this.memberSearchControl.valueChanges.pipe(
+      startWith(''),
+      map(value => this._filterMembers(value || ''))
+    );
 
     // If editing, populate form with existing data
     if (this.isEditMode && data.activity) {
@@ -625,6 +671,49 @@ export class CreateActivityDialogComponent implements OnInit {
     const currentSelected = this.assignmentForm.get('assignedUsers')?.value || [];
     const updatedSelected = currentSelected.filter((id: string) => id !== memberId);
     this.assignmentForm.patchValue({ assignedUsers: updatedSelected });
+    
+    // Also update selectedMembers array
+    this.selectedMembers = this.selectedMembers.filter(member => member.id !== memberId);
+  }
+
+  // Autocomplete methods
+  private _filterMembers(value: string | User): User[] {
+    let filterValue = '';
+    if (typeof value === 'string') {
+      filterValue = value.toLowerCase();
+    } else if (value && value.name) {
+      filterValue = value.name.toLowerCase();
+    }
+
+    const selectableMembers = this.getSelectableMembers();
+    const alreadySelected = this.selectedMembers.map(member => member.id);
+    
+    return selectableMembers.filter(member => 
+      !alreadySelected.includes(member.id) &&
+      (member.name.toLowerCase().includes(filterValue) ||
+       member.empId.toLowerCase().includes(filterValue))
+    );
+  }
+
+  displayMember(member: User): string {
+    return member ? `${member.name} (${member.empId})` : '';
+  }
+
+  onMemberSelected(event: any) {
+    const selectedMember: User = event.option.value;
+    
+    // Add to selected members if not already selected
+    if (!this.selectedMembers.find(member => member.id === selectedMember.id)) {
+      this.selectedMembers.push(selectedMember);
+      
+      // Update the form control
+      const currentSelected = this.assignmentForm.get('assignedUsers')?.value || [];
+      currentSelected.push(selectedMember.id);
+      this.assignmentForm.patchValue({ assignedUsers: currentSelected });
+    }
+    
+    // Clear the search input
+    this.memberSearchControl.setValue('');
   }
 
   onDrop(event: DragEvent) {
@@ -773,8 +862,7 @@ export class CreateActivityDialogComponent implements OnInit {
       formData.append('description', this.activityForm.get('description')?.value || '');
       formData.append('priority', this.activityForm.get('priority')?.value);
       formData.append('targetDate', this.activityForm.get('targetDate')?.value?.toISOString());
-      formData.append('teamId', this.data.teamId);
-      formData.append('createdBy', currentUser.id);
+      formData.append('team_id', this.data.teamId);
 
       // Add assigned users (always include the current user)
       const assignedUserIds = this.activityForm.get('assignedUsers')?.value || [];

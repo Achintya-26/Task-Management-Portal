@@ -49,7 +49,7 @@ import { forkJoin } from 'rxjs';
             <h1 class="hero-title">Welcome back, {{ (authService.currentUser$ | async)?.name || currentUser?.name }}!</h1>
             <p class="hero-subtitle">{{ getGreetingMessage() }}</p>
           </div>
-          <div class="quick-actions">
+          <!-- <div class="quick-actions">
             <button mat-fab color="primary" matTooltip="Create New Activity" aria-label="Create Activity">
               <mat-icon>add</mat-icon>
             </button>
@@ -67,7 +67,7 @@ import { forkJoin } from 'rxjs';
                 <span>View Activities</span>
               </button>
             </mat-menu>
-          </div>
+          </div> -->
         </div>
       </div>
 
@@ -262,7 +262,7 @@ import { forkJoin } from 'rxjs';
                   <h4>{{ activity.name }}</h4>
                   <div class="activity-badges">
                     <mat-chip class="priority-chip" [class]="'priority-' + (activity.priority || 'medium')">
-                      {{ activity.priority || 'Medium' }}
+                      {{ getPriorityLabel(activity.priority) }}
                     </mat-chip>
                     <mat-chip class="status-chip" [class]="'status-' + activity.status">
                       {{ getStatusLabel(activity.status) }}
@@ -1094,6 +1094,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
       'on-hold': 'On Hold'
     };
     return statusLabels[status] || status;
+  }
+
+  getPriorityLabel(priority: string | undefined): string {
+    const labels: { [key: string]: string } = {
+      'low': 'Low',
+      'medium': 'Medium',
+      'high': 'High',
+      'urgent': 'Urgent'
+    };
+    return labels[priority || 'medium'] || 'Medium';
   }
 
   formatDate(dateString: string | null): string {

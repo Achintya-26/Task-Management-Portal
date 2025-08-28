@@ -178,10 +178,10 @@ import { map } from 'rxjs/operators';
               </button>
               
               <mat-menu #actionMenu="matMenu" class="action-menu">
-                <button mat-menu-item (click)="duplicateActivity()">
+                <!-- <button mat-menu-item (click)="duplicateActivity()">
                   <mat-icon>content_copy</mat-icon>
                   <span>Duplicate Activity</span>
-                </button>
+                </button> -->
                 <button mat-menu-item (click)="exportActivity()">
                   <mat-icon>download</mat-icon>
                   <span>Export Details</span>
@@ -358,7 +358,7 @@ import { map } from 'rxjs/operators';
                         Start Working
                       </button>
                       <button mat-stroked-button color="accent" (click)="updateStatusQuick('completed')" 
-                              *ngIf="activity.status === 'in-progress'" class="quick-action-btn">
+                              *ngIf="activity.status !== 'in-progress'" class="quick-action-btn">
                         <mat-icon>check_circle</mat-icon>
                         Mark Complete
                       </button>
@@ -460,11 +460,12 @@ import { map } from 'rxjs/operators';
                         placeholder="Share an update, ask a question, or leave feedback..."
                         rows="4"
                         maxlength="1000"
+                        (input)="onRemarkInput()"
                       ></textarea>
                       <mat-hint align="end">
                         {{ remarkForm.get('text')?.value?.length || 0 }}/1000
                       </mat-hint>
-                      <mat-error *ngIf="remarkForm.get('text')?.hasError('required')">
+                      <mat-error *ngIf="showRemarkValidationErrors && remarkForm.get('text')?.hasError('required')">
                         Please enter a comment
                       </mat-error>
                     </mat-form-field>
@@ -1611,6 +1612,9 @@ import { map } from 'rxjs/operators';
     /* Comments List */
     .comment-thread {
       position: relative;
+      max-height:400px;
+      overflow:scroll;
+      overflow-x:hidden;
     }
 
     .comment-item {
@@ -1837,7 +1841,7 @@ import { map } from 'rxjs/operators';
       box-shadow: 0 4px 20px rgba(0,0,0,0.08);
       border: 1px solid #e0e0e0;
       overflow: hidden;
-      max-width: 600px;
+      // max-width: 600px;
     }
 
     .status-management-card mat-card-header {
@@ -2103,6 +2107,7 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
   statusForm: FormGroup;
   isAddingRemark = false;
   isUpdatingStatus = false;
+  showRemarkValidationErrors = false;
   private subscriptions: Subscription[] = [];
 
   // Observable properties for template usage
@@ -2161,14 +2166,14 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
   }
 
   loadActivityDetails(activityId: number) {
-    console.log('Loading activity details for ID:', activityId);
-    console.log('Current user:', this.currentUser);
+    // console.log('Loading activity details for ID:', activityId);
+    // console.log('Current user:', this.currentUser);
     this.error = null; // Reset error state
 
     this.subscriptions.push(
       this.activityService.getActivityById(activityId).subscribe({
         next: (activity) => {
-          console.log('Activity loaded successfully:', activity);
+          // console.log('Activity loaded successfully:', activity);
           this.activity = activity;
           this.statusForm.patchValue({ status: activity.status });
         },
@@ -2187,18 +2192,44 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
   // Use canUpdate$ | async in templates instead
 
   addRemark() {
-    if (this.remarkForm.invalid || !this.activity) return;
-
+    if (this.remarkForm.invalid || !this.activity) {
+      this.showRemarkValidationErrors = true;
+      return;
+    }
+    
+    this.showRemarkValidationErrors = false;
     this.isAddingRemark = true;
     const text = this.remarkForm.value.text;
+
 
     this.subscriptions.push(
       this.activityService.addRemarkToActivity(parseInt(this.activity.id), text).subscribe({
         next: (response) => {
-          this.isAddingRemark = false;
+          // Reset validation flag first
+          this.showRemarkValidationErrors = false;
+          
+          // Reset the form and clear validation state completely
           this.remarkForm.reset();
+          this.remarkForm.markAsUntouched();
+          this.remarkForm.markAsPristine();
+          
+          // Also reset the individual control to be extra sure
+          const textControl = this.remarkForm.get('text');
+          if (textControl) {
+            textControl.setValue(''); // Explicitly set empty value
+            textControl.setErrors(null);
+            textControl.markAsUntouched();
+            textControl.markAsPristine();
+          }
+          
+          // Use timeout to ensure form state is updated in next change detection cycle
+          setTimeout(() => {
+            this.remarkForm.updateValueAndValidity();
+          }, 0);
+          
           this.snackBar.open('Remark added successfully', 'Close', { duration: 3000 });
           this.loadActivityDetails(parseInt(this.activity!.id));
+          this.isAddingRemark = false;
         },
         error: (error) => {
           this.isAddingRemark = false;
@@ -2206,6 +2237,11 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
         }
       })
     );
+  }
+
+  onRemarkInput() {
+    // Clear validation errors when user starts typing
+    this.showRemarkValidationErrors = false;
   }
 
   updateStatus() {
@@ -2567,7 +2603,7 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
   getSortedRemarks(): Remark[] {
     if (!this.activity?.remarks) return [];
     return [...this.activity.remarks].sort((a, b) =>
-      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      -(new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
     );
   }
 

@@ -1,19 +1,21 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormControl } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { TeamService } from '../../../services/team.service';
 import { DomainService } from '../../../services/domain.service';
 import { UserService } from '../../../services/user.service';
 import { Team, Domain, User } from '../../../models';
-import { Subscription } from 'rxjs';
+import { Subscription, Observable } from 'rxjs';
+import { map, startWith } from 'rxjs/operators';
 
 @Component({
   selector: 'app-team-management',
@@ -27,6 +29,7 @@ import { Subscription } from 'rxjs';
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
+    MatAutocompleteModule,
     MatChipsModule
   ],
   template: `
@@ -82,13 +85,24 @@ import { Subscription } from 'rxjs';
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Initial Team Members</mat-label>
-              <mat-select multiple formControlName="initialMembers">
-                <mat-option *ngFor="let user of availableUsers" [value]="user.id">
-                  {{ user.name }} ({{ user.empId }})
+              <mat-label>Add Team Members</mat-label>
+              <input matInput
+                     [formControl]="memberSearchControl"
+                     [matAutocomplete]="memberAutocomplete"
+                     placeholder="Type member name or employee ID">
+              <mat-autocomplete #memberAutocomplete="matAutocomplete" 
+                               [displayWith]="displayMember"
+                               (optionSelected)="onMemberSelected($event)">
+                <mat-option *ngFor="let user of filteredMembers | async" [value]="user">
+                  <div class="member-option">
+                    <div class="member-info">
+                      <span class="member-name">{{ user.name }}</span>
+                      <span class="member-id">({{ user.empId }})</span>
+                    </div>
+                  </div>
                 </mat-option>
-              </mat-select>
-              <mat-hint>Select users to add as initial team members (optional)</mat-hint>
+              </mat-autocomplete>
+              <mat-hint>Search by name or employee ID to add team members (optional)</mat-hint>
             </mat-form-field>
 
             <!-- Show selected members -->
@@ -221,6 +235,25 @@ import { Subscription } from 'rxjs';
       margin: 8px 0;
     }
 
+    .member-option {
+      padding: 8px 0;
+    }
+
+    .member-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .member-name {
+      font-weight: 500;
+    }
+
+    .member-id {
+      color: #666;
+      font-size: 12px;
+    }
+
     .teams-section h2 {
       font-size: 24px;
       font-weight: 400;
@@ -333,6 +366,10 @@ export class TeamManagementComponent implements OnInit, OnDestroy {
   isLoading = false;
   private subscriptions: Subscription[] = [];
 
+  // Autocomplete properties
+  memberSearchControl = new FormControl('');
+  filteredMembers!: Observable<User[]>;
+
   constructor(
     private fb: FormBuilder,
     private teamService: TeamService,
@@ -369,6 +406,7 @@ export class TeamManagementComponent implements OnInit, OnDestroy {
         this.users = users;
         // Filter out admin users for team member selection
         this.availableUsers = users.filter(user => user.role !== 'admin');
+        this.setupAutocomplete();
       })
     );
   }
@@ -381,6 +419,47 @@ export class TeamManagementComponent implements OnInit, OnDestroy {
     });
   }
 
+  setupAutocomplete() {
+    this.filteredMembers = this.memberSearchControl.valueChanges.pipe(
+      startWith(''),
+      map(value => {
+        if (typeof value === 'string') {
+          return this._filterMembers(value);
+        }
+        return this.availableUsers.slice();
+      })
+    );
+  }
+
+  private _filterMembers(value: string): User[] {
+    if (!value) {
+      return this.availableUsers.slice();
+    }
+    
+    const filterValue = value.toLowerCase();
+    return this.availableUsers.filter(user =>
+      user.name.toLowerCase().includes(filterValue) ||
+      user.empId.toLowerCase().includes(filterValue)
+    );
+  }
+
+  displayMember(user: User | null): string {
+    return user ? `${user.name} (${user.empId})` : '';
+  }
+
+  onMemberSelected(event: any) {
+    const selectedUser = event.option.value;
+    if (selectedUser && selectedUser.id) {
+      const currentSelected = this.teamForm.get('initialMembers')?.value || [];
+      if (!currentSelected.includes(selectedUser.id)) {
+        const updatedSelected = [...currentSelected, selectedUser.id];
+        this.teamForm.patchValue({ initialMembers: updatedSelected });
+      }
+    }
+    // Clear the search field
+    this.memberSearchControl.setValue('');
+  }
+
   removeSelectedMember(memberId: string) {
     const currentSelected = this.teamForm.get('initialMembers')?.value || [];
     const updatedSelected = currentSelected.filter((id: string) => id !== memberId);
@@ -389,12 +468,14 @@ export class TeamManagementComponent implements OnInit, OnDestroy {
 
   openCreateDialog() {
     this.teamForm.reset();
+    this.memberSearchControl.setValue('');
     this.showForm = true;
   }
 
   cancelForm() {
     this.showForm = false;
     this.teamForm.reset();
+    this.memberSearchControl.setValue('');
   }
 
   createTeam() {

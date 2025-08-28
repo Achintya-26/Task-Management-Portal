@@ -82,20 +82,20 @@ export class AuthService {
   // Initialize authentication state
   private initializeAuth(): void {
     const token = this.getToken();
-    console.log('Initializing auth, token exists:', !!token);
+    // console.log('Initializing auth, token exists:', !!token);
     
     if (token && this.isTokenValid(token)) {
-      console.log('Token is valid, loading user info');
+      // console.log('Token is valid, loading user info');
       // Immediately load user from token for instant UI update
       this.loadUserFromToken();
       // Then verify with backend in the background
       this.verifyCurrentUserInBackground();
     } else if (token) {
-      console.log('Token exists but is invalid, clearing');
+      // console.log('Token exists but is invalid, clearing');
       // Token exists but is invalid, clear it
       this.logout();
     } else {
-      console.log('No token found');
+      // console.log('No token found');
     }
   }
 
@@ -148,10 +148,10 @@ export class AuthService {
   // Load user info from backend (gracefully handle failures)
   private loadCurrentUser(): void {
     if (this.getToken()) {
-      console.log('Loading current user from backend');
+      // console.log('Loading current user from backend');
       this.verifyCurrentUser().subscribe({
         next: (user) => {
-          console.log('User verified successfully:', user);
+          // console.log('User verified successfully:', user);
           this.currentUserSubject.next(user);
         },
         error: (error) => {
@@ -159,10 +159,10 @@ export class AuthService {
           // Don't immediately logout - the backend might be down
           // Only clear if it's a 401 Unauthorized (invalid token)
           if (error.status === 401) {
-            console.log('401 error - token invalid, logging out');
+            // console.log('401 error - token invalid, logging out');
             this.logout();
           } else {
-            console.log('Non-401 error, trying to load from token');
+            // console.log('Non-401 error, trying to load from token');
             // For other errors (network, 500, etc.), try to extract user from token
             this.loadUserFromToken();
           }
@@ -174,16 +174,16 @@ export class AuthService {
   // Fallback: Extract user info from JWT token
   private loadUserFromToken(): void {
     const token = this.getToken();
-    console.log('Loading user from token');
+    // console.log('Loading user from token');
     
     if (token) {
       try {
         const payload = this.parseJWT(token);
-        console.log('Token payload:', payload);
+        // console.log('Token payload:', payload);
         
         // Check if token is expired
         if (payload.exp * 1000 <= Date.now()) {
-          console.log('Token is expired, logging out');
+          // console.log('Token is expired, logging out');
           this.logout();
           return;
         }
@@ -195,7 +195,7 @@ export class AuthService {
           role: payload.role || 'user' // default role
         };
         
-        console.log('User loaded from token:', user);
+        // console.log('User loaded from token:', user);
         this.currentUserSubject.next(user);
       } catch (error) {
         console.error('Invalid token:', error);
@@ -213,7 +213,7 @@ export class AuthService {
   private verifyCurrentUserInBackground(): void {
     this.verifyCurrentUser().subscribe({
       next: (user) => {
-        console.log('Background verification successful:', user);
+        // console.log('Background verification successful:', user);
         // Update the user data if different from token
         this.currentUserSubject.next(user);
       },
