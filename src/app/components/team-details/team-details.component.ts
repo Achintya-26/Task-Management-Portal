@@ -261,14 +261,9 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
                   <mat-card-content>
                     <div class="activity-title-section">
                       <h3>{{ activity.name }}</h3>
-                      <div class="activity-badges">
-                        <mat-chip class="priority-chip" [class]="'priority-' + (activity.priority || 'medium')">
-                          {{ getPriorityLabel(activity.priority) }}
-                        </mat-chip>
-                        <mat-chip class="status-chip" [class]="'status-' + activity.status">
-                          {{ getStatusLabel(activity.status) }}
-                        </mat-chip>
-                      </div>
+                      <mat-chip class="status-chip" [class]="'status-' + activity.status">
+                        {{ getStatusLabel(activity.status) }}
+                      </mat-chip>
                     </div>
                     
                     <p class="activity-description">{{ activity.description }}</p>
@@ -462,14 +457,9 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
                   <mat-card-content>
                     <div class="activity-title-section">
                       <h3>{{ activity.name }}</h3>
-                      <div class="activity-badges">
-                        <mat-chip class="priority-chip" [class]="'priority-' + (activity.priority || 'medium')">
-                          {{ getPriorityLabel(activity.priority) }}
-                        </mat-chip>
-                        <mat-chip class="status-chip" [class]="'status-' + activity.status">
-                          {{ getStatusLabel(activity.status) }}
-                        </mat-chip>
-                      </div>
+                      <mat-chip class="status-chip" [class]="'status-' + activity.status">
+                        {{ getStatusLabel(activity.status) }}
+                      </mat-chip>
                     </div>
                     
                     <p class="activity-description">{{ activity.description }}</p>
@@ -1240,38 +1230,6 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
       color: #c62828; 
     }
 
-    .activity-badges {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .priority-chip {
-      font-size: 11px;
-      height: 24px;
-      flex-shrink: 0;
-    }
-
-    .priority-chip.priority-low { 
-      background-color: #f3e5f5; 
-      color: #7b1fa2; 
-    }
-    
-    .priority-chip.priority-medium { 
-      background-color: #e8f5e8; 
-      color: #388e3c; 
-    }
-    
-    .priority-chip.priority-high { 
-      background-color: #fff3e0; 
-      color: #f57c00; 
-    }
-    
-    .priority-chip.priority-urgent { 
-      background-color: #ffebee; 
-      color: #d32f2f; 
-    }
-
     .activity-description {
       font-size: 14px;
       color: #666;
@@ -1774,10 +1732,10 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
       this.teamService.getTeamById(teamId).subscribe({
         next: (team) => {
           this.team = team;
-          // console.log("Team is :::", team);
+          console.log("Team is :::", team);
           this.isLoading = false;
-          // console.log('Team loaded successfully:', team);
-          // console.log('Team members structure:', team.members);
+          console.log('Team loaded successfully:', team);
+          console.log('Team members structure:', team.members);
         },
         error: (error) => {
           console.error('Error loading team details:', error);
@@ -1794,13 +1752,13 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
       this.activityService.getActivitiesForTeam(parseInt(teamId)).subscribe({
         next: (activities) => {
           // activities = activities.map(activity => ({ ...activity, userId: activity.userId }));
-          // console.log('Raw activities response:', activities);
+          console.log('Raw activities response:', activities);
           this.activities = activities || [];
           this.filterActivities();
           this.filterMyActivities(); // Filter activities for current user
-          // console.log('Activities loaded successfully:', activities?.length || 0, 'activities');
+          console.log('Activities loaded successfully:', activities?.length || 0, 'activities');
           if (activities && activities.length > 0) {
-            // console.log('Sample activity structure:', activities[0]);
+            console.log('Sample activity structure:', activities[0]);
           }
         },
         error: (error) => {
@@ -1925,7 +1883,7 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
 
   onTabChange(event: any): void {
     // Handle tab change if needed
-    // console.log('Tab changed to:', event.index);
+    console.log('Tab changed to:', event.index);
   }
 
   trackByActivityId(index: number, activity: Activity): string {
@@ -1949,15 +1907,15 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
     // Set up listeners (only once per team) - now handled by NotificationService
     // this.subscriptions.push(
     //   this.socketService.onActivityCreated().subscribe(() => {
-        // console.log('Activity created event received');
+    //     console.log('Activity created event received');
     //     this.loadActivities(teamId);
     //   }),
     //   this.socketService.onActivityUpdated().subscribe(() => {
-        // console.log('Activity updated event received');
+    //     console.log('Activity updated event received');
     //     this.loadActivities(teamId);
     //   }),
     //   this.socketService.onTeamUpdated().subscribe(() => {
-        // console.log('Team updated event received');
+    //     console.log('Team updated event received');
     //     this.loadTeamDetails(teamId);
     //   })
     // );
@@ -2086,19 +2044,9 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
     return labels[status] || status;
   }
 
-  getPriorityLabel(priority: string | undefined): string {
-    const labels: { [key: string]: string } = {
-      'low': 'Low',
-      'medium': 'Medium',
-      'high': 'High',
-      'urgent': 'Urgent'
-    };
-    return labels[priority || 'medium'] || 'Medium';
-  }
-
   getAssignedMembersText(assignedUsers: Activity["assignedMembers"] | string | undefined): string {
-    // console.log('getAssignedMembersText - assignedUsers:', assignedUsers);
-    // console.log('getAssignedMembersText - team members:', this.team?.members);
+    console.log('getAssignedMembersText - assignedUsers:', assignedUsers);
+    console.log('getAssignedMembersText - team members:', this.team?.members);
     
     if (!this.team || !assignedUsers) return 'No assignees';
     
@@ -2110,21 +2058,21 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
       memberIds = assignedUsers.split(',').map(id => id.trim()).filter(id => id);
     }
     
-    // console.log('Extracted member IDs:', memberIds);
+    console.log('Extracted member IDs:', memberIds);
     
     if (memberIds.length === 0) return 'No assignees';
     
     // Look up members by their user ID (which matches the assigned user IDs)
-    // console.log("-------|||||-------",this.team!.members);
+    console.log("-------|||||-------",this.team!.members);
     const memberNames = memberIds
       .map(id => {
         const member = this.team!.members?.find(m => m.id === id);
-        // console.log(`Looking for ID ${id}, found member:`, member);
+        console.log(`Looking for ID ${id}, found member:`, member);
         return member?.name;
       })
       .filter(name => name);
     
-    // console.log('Found member names:', memberNames);
+    console.log('Found member names:', memberNames);
     
     if (memberNames.length === 0) return 'No assignees';
     if (memberNames.length === 1) return memberNames[0]!;

@@ -178,10 +178,10 @@ import { map } from 'rxjs/operators';
               </button>
               
               <mat-menu #actionMenu="matMenu" class="action-menu">
-                <!-- <button mat-menu-item (click)="duplicateActivity()">
+                <button mat-menu-item (click)="duplicateActivity()">
                   <mat-icon>content_copy</mat-icon>
                   <span>Duplicate Activity</span>
-                </button> -->
+                </button>
                 <button mat-menu-item (click)="exportActivity()">
                   <mat-icon>download</mat-icon>
                   <span>Export Details</span>
@@ -2166,14 +2166,14 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
   }
 
   loadActivityDetails(activityId: number) {
-    // console.log('Loading activity details for ID:', activityId);
-    // console.log('Current user:', this.currentUser);
+    console.log('Loading activity details for ID:', activityId);
+    console.log('Current user:', this.currentUser);
     this.error = null; // Reset error state
 
     this.subscriptions.push(
       this.activityService.getActivityById(activityId).subscribe({
         next: (activity) => {
-          // console.log('Activity loaded successfully:', activity);
+          console.log('Activity loaded successfully:', activity);
           this.activity = activity;
           this.statusForm.patchValue({ status: activity.status });
         },

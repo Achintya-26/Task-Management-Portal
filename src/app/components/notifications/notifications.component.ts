@@ -231,7 +231,7 @@ export interface NotificationSettings {
         </div>
 
         <!-- Enhanced Footer -->
-        <!-- <div class="notification-footer" *ngIf="notifications.length > 0">
+        <div class="notification-footer" *ngIf="notifications.length > 0">
           <div class="footer-stats">
             Showing {{filteredNotifications.length}} of {{notifications.length}} notifications
           </div>
@@ -244,7 +244,7 @@ export interface NotificationSettings {
               View All
             </button>
           </div>
-        </div> -->
+        </div>
       </mat-menu>
     </div>
   `,
@@ -951,7 +951,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     this.isLoading = true;
     this.notificationService.getNotifications().subscribe({
       next: (notifications) => {
-        this.notifications = notifications;
+        this.notifications = notifications.slice(0, 10); // Show only recent 10
         this.updateUnreadCount();
         this.isLoading = false;
       },
@@ -1123,7 +1123,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
 
   openNotificationsPage(): void {
     // TODO: Navigate to full notifications page
-    // console.log('Navigate to notifications page');
+    console.log('Navigate to notifications page');
   }
 
   getTypeDisplay(type: string): string {

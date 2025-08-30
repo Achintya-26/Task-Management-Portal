@@ -862,7 +862,8 @@ export class CreateActivityDialogComponent implements OnInit {
       formData.append('description', this.activityForm.get('description')?.value || '');
       formData.append('priority', this.activityForm.get('priority')?.value);
       formData.append('targetDate', this.activityForm.get('targetDate')?.value?.toISOString());
-      formData.append('team_id', this.data.teamId);
+      formData.append('teamId', this.data.teamId);
+      formData.append('createdBy', currentUser.id);
 
       // Add assigned users (always include the current user)
       const assignedUserIds = this.activityForm.get('assignedUsers')?.value || [];
