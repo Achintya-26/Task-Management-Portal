@@ -30,6 +30,15 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
 import { Subscription, Observable, combineLatest } from 'rxjs';
 import { map } from 'rxjs/operators';
 
+/**
+ * Activity Details Component
+ * 
+ * Permissions:
+ * - Activity Editing: Available to admins and activity creators only
+ * - Status Management: Available to admins, activity creators, and assigned members
+ * - Quick Actions: Available to admins, activity creators, and assigned members
+ * - Comment/Remark Management: All users can add comments, only comment authors and admins can edit/delete
+ */
 @Component({
   selector: 'app-activity-details',
   standalone: true,
@@ -165,7 +174,7 @@ import { map } from 'rxjs/operators';
               </div>
             </div>
 
-            <div class="action-section" *ngIf="canEditActivity()">
+            <div class="action-section" *ngIf="canEdit$ | async">
               <div class="primary-actions">
                 <button mat-raised-button color="primary" (click)="editActivity()" class="primary-action-btn">
                   <mat-icon>edit</mat-icon>
@@ -2112,7 +2121,8 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
 
   // Observable properties for template usage
   isAdmin$: Observable<boolean>;
-  canUpdate$: Observable<boolean>;
+  canUpdate$: Observable<boolean>; // For status management and quick actions
+  canEdit$: Observable<boolean>;   // For editing activity details (creator + admin only)
 
   constructor(
     private route: ActivatedRoute,
@@ -2136,14 +2146,48 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
     // Initialize observables
     this.isAdmin$ = this.authService.isAdmin();
 
-    // Initialize canUpdate$ observable
+    // Initialize canUpdate$ observable (for status management and quick actions)
+    // Available to: admins, creators, and assigned members
     this.canUpdate$ = combineLatest([
       this.authService.isAdmin(),
       this.authService.currentUser$
     ]).pipe(
       map(([isAdmin, user]) => {
-        if (!this.activity || !user || !this.activity.assignedMembers) return false;
-        return isAdmin || this.activity.assignedMembers.map(m => m.id).includes(user.id);
+        if (!this.activity || !user) return false;
+        
+        // Allow updates for:
+        // 1. Admins
+        if (isAdmin) return true;
+        
+        // 2. Activity creator
+        if (this.activity.createdBy && this.activity.createdBy === user.id) return true;
+        
+        // 3. Assigned members
+        if (this.activity.assignedMembers && this.activity.assignedMembers.length > 0) {
+          return this.activity.assignedMembers.map(m => m.id).includes(user.id);
+        }
+        
+        return false;
+      })
+    );
+
+    // Initialize canEdit$ observable (for editing activity details)
+    // Available to: admins and creators only
+    this.canEdit$ = combineLatest([
+      this.authService.isAdmin(),
+      this.authService.currentUser$
+    ]).pipe(
+      map(([isAdmin, user]) => {
+        if (!this.activity || !user) return false;
+        
+        // Allow editing for:
+        // 1. Admins
+        if (isAdmin) return true;
+        
+        // 2. Activity creator only
+        if (this.activity.createdBy && this.activity.createdBy === user.id) return true;
+        
+        return false;
       })
     );
   }
@@ -2440,8 +2484,14 @@ export class ActivityDetailsComponent implements OnInit, OnDestroy {
   canEditActivity(): boolean {
     if (!this.currentUser || !this.activity) return false;
 
-    // Admin can edit all activities, creator can edit their own activities
-    return this.currentUser.role === 'admin' || this.activity.createdBy === this.currentUser.id;
+    // Allow editing for:
+    // 1. Admins
+    if (this.currentUser.role === 'admin') return true;
+    
+    // 2. Activity creator only (not assigned members)
+    if (this.activity.createdBy && this.activity.createdBy === this.currentUser.id) return true;
+    
+    return false;
   }
 
   editActivity() {

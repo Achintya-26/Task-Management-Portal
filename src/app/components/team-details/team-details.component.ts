@@ -376,7 +376,213 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
             
         </mat-tab>
 
-        <!-- All Activities Tab -->
+        <!-- Created by Me Tab -->
+        <mat-tab>
+          <ng-template mat-tab-label>
+            <mat-icon class="tab-icon">create</mat-icon>
+            Created by Me
+            <mat-chip class="tab-badge">{{ createdActivities.length }}</mat-chip>
+          </ng-template>
+          
+          <div class="tab-content created-activities-tab">
+            <div class="content-header">
+              <div class="header-title">
+                <h2>
+                  <mat-icon class="section-icon">create</mat-icon>
+                  Activities created by you in this team
+                </h2>
+              </div>
+                
+              <div class="activity-filters">
+                <button 
+                  mat-chip-listbox 
+                  [class.selected]="createdSelectedStatus === ''"
+                  (click)="setCreatedStatusFilter('')"
+                  matRipple
+                >
+                  <mat-icon>view_list</mat-icon>
+                  All ({{ getCreatedActivitiesByStatus('all').length }})
+                </button>
+                <button 
+                  mat-chip-listbox
+                  [class.selected]="createdSelectedStatus === 'pending'"
+                  (click)="setCreatedStatusFilter('pending')"
+                  matRipple
+                >
+                  <mat-icon>schedule</mat-icon>
+                  Pending ({{ getCreatedPendingCount() }})
+                </button>
+                <button 
+                  mat-chip-listbox
+                  [class.selected]="createdSelectedStatus === 'in-progress'"
+                  (click)="setCreatedStatusFilter('in-progress')"
+                  matRipple
+                >
+                  <mat-icon>play_circle</mat-icon>
+                  In Progress ({{ getCreatedInProgressCount() }})
+                </button>
+                <button 
+                  mat-chip-listbox
+                  [class.selected]="createdSelectedStatus === 'completed'"
+                  (click)="setCreatedStatusFilter('completed')"
+                  matRipple
+                >
+                  <mat-icon>check_circle</mat-icon>
+                  Completed ({{ getCreatedCompletedCount() }})
+                </button>
+                <button 
+                  mat-chip-listbox
+                  [class.selected]="createdSelectedStatus === 'on-hold'"
+                  (click)="setCreatedStatusFilter('on-hold')"
+                  matRipple
+                >
+                  <mat-icon>pause_circle</mat-icon>
+                  On Hold ({{ getCreatedOnHoldCount() }})
+                </button>
+              </div>
+            </div>
+
+            <div class="activities-grid" *ngIf="createdActivities.length > 0; else noCreatedActivities">
+              <mat-card 
+                *ngFor="let activity of createdActivities; trackBy: trackByActivityId" 
+                class="activity-card enhanced created-activity"
+                [routerLink]="['/activities', activity.id]"
+                matRipple
+              >
+                <div class="activity-header">
+                  <div class="activity-status-indicator" [class]="'status-' + activity.status"></div>
+                  <!-- <mat-chip class="creator-badge">Creator</mat-chip> -->
+                </div>
+                
+                <mat-card-content>
+                  <div class="activity-title-section">
+                    <h3>{{ activity.name }}</h3>
+                    <div class="activity-badges">
+                      <mat-chip class="priority-chip" [class]="'priority-' + (activity.priority || 'medium')">
+                        {{ getPriorityLabel(activity.priority) }}
+                      </mat-chip>
+                      <mat-chip class="status-chip" [class]="'status-' + activity.status">
+                        {{ getStatusLabel(activity.status) }}
+                      </mat-chip>
+                    </div>
+                  </div>
+                  
+                  <p class="activity-description">{{ activity.description }}</p>
+                  
+                  <div class="activity-metadata">
+                    <div class="metadata-row">
+                      <div class="metadata-item">
+                        <mat-icon class="small-icon">people</mat-icon>
+                        <span>{{ getAssignedMembersText(activity.assignedMembers) }}</span>
+                      </div>
+                      <div class="metadata-item">
+                        <mat-icon class="small-icon">schedule</mat-icon>
+                        <span class="due-date" [class]="getDueDateClass(activity.targetDate)">
+                          {{ formatDueDate(activity.targetDate) }}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div class="metadata-row">
+                      <div class="metadata-item">
+                        <mat-icon class="small-icon">attachment</mat-icon>
+                        <span>{{ getAttachmentsCount(activity) }} attachments</span>
+                      </div>
+                      <div class="metadata-item">
+                        <mat-icon class="small-icon">comment</mat-icon>
+                        <span>{{ getRemarksCount(activity) }} remarks</span>
+                      </div>
+                    </div>
+                  </div>
+                </mat-card-content>
+
+                <mat-divider></mat-divider>
+
+                <mat-card-actions>
+                  <button mat-button color="primary" [routerLink]="['/activities', activity.id]" 
+                          (click)="$event.stopPropagation()">
+                    <mat-icon>visibility</mat-icon>
+                    View
+                  </button>
+                  <button 
+                    mat-button 
+                    (click)="openEditActivityDialog(activity); $event.stopPropagation()"
+                    matTooltip="Edit activity"
+                  >
+                    <mat-icon>edit</mat-icon>
+                    Edit
+                  </button>
+                  <button 
+                    mat-button 
+                    color="primary"
+                    [matMenuTriggerFor]="createdStatusMenu"
+                    (click)="$event.stopPropagation()"
+                    matTooltip="Update status"
+                  >
+                    <mat-icon>update</mat-icon>
+                    Status
+                  </button>
+                  <mat-menu #createdStatusMenu="matMenu">
+                    <button mat-menu-item (click)="updateActivityStatus(activity.id, 'pending')"
+                            [disabled]="activity.status === 'pending'">
+                      <mat-icon>schedule</mat-icon>
+                      Pending
+                    </button>
+                    <button mat-menu-item (click)="updateActivityStatus(activity.id, 'in-progress')"
+                            [disabled]="activity.status === 'in-progress'">
+                      <mat-icon>play_circle</mat-icon>
+                      In Progress
+                    </button>
+                    <button mat-menu-item (click)="updateActivityStatus(activity.id, 'completed')"
+                            [disabled]="activity.status === 'completed'">
+                      <mat-icon>check_circle</mat-icon>
+                      Completed
+                    </button>
+                    <button mat-menu-item (click)="updateActivityStatus(activity.id, 'on-hold')"
+                            [disabled]="activity.status === 'on-hold'">
+                      <mat-icon>pause_circle</mat-icon>
+                      On Hold
+                    </button>
+                  </mat-menu>
+                </mat-card-actions>
+              </mat-card>
+            </div>
+
+            <ng-template #noCreatedActivities>
+              <mat-card class="empty-state enhanced">
+                <mat-card-content>
+                  <div class="empty-content">
+                    <mat-icon class="empty-icon">create</mat-icon>
+                    <h3>No Activities Created</h3>
+                    <p *ngIf="createdSelectedStatus">No activities found with the selected status filter.</p>
+                    <p *ngIf="!createdSelectedStatus">You haven't created any activities in this team yet.</p>
+                    <div class="empty-actions">
+                      <button 
+                        *ngIf="createdSelectedStatus" 
+                        mat-stroked-button 
+                        color="primary" 
+                        (click)="setCreatedStatusFilter('')"
+                      >
+                        <mat-icon>clear</mat-icon>
+                        Clear Filter
+                      </button>
+                      <button 
+                        mat-raised-button 
+                        color="primary" 
+                        (click)="openCreateActivityDialog()"
+                      >
+                        <mat-icon>add</mat-icon>
+                        Create Activity
+                      </button>
+                    </div>
+                  </div>
+                </mat-card-content>
+              </mat-card>
+            </ng-template>
+          </div>
+        </mat-tab>
+
+         <!-- All Activities Tab -->
         <mat-tab>
           <ng-template mat-tab-label>
             <mat-icon class="tab-icon">assignment</mat-icon>
@@ -640,14 +846,14 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
                       <div class="stat-item">
                         <mat-icon class="stat-icon">assignment</mat-icon>
                         <div class="stat-content">
-                          <span class="stat-value">{{ getMemberActivityCount(member.userId) }}</span>
+                          <span class="stat-value">{{ getMemberActivityCount(member.id) }}</span>
                           <span class="stat-label">Assigned</span>
                         </div>
                       </div>
                       <div class="stat-item">
                         <mat-icon class="stat-icon completed">check_circle</mat-icon>
                         <div class="stat-content">
-                          <span class="stat-value">{{ getMemberCompletedCount(member.userId) }}</span>
+                          <span class="stat-value">{{ getMemberCompletedCount(member.id) }}</span>
                           <span class="stat-label">Completed</span>
                         </div>
                       </div>
@@ -657,10 +863,10 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
                       <span class="progress-label">Completion Rate</span>
                       <mat-progress-bar 
                         mode="determinate" 
-                        [value]="getMemberCompletionRate(member.userId)"
+                        [value]="getMemberCompletionRate(member.id)"
                         color="primary">
                       </mat-progress-bar>
-                      <span class="progress-value">{{ getMemberCompletionRate(member.userId) }}%</span>
+                      <span class="progress-value">{{ getMemberCompletionRate(member.id) }}%</span>
                     </div>
                   </div>
                 </mat-card-content>
@@ -1029,9 +1235,21 @@ import { CreateActivityDialogComponent } from '../dialogs/create-activity-dialog
       border-left: 4px solid #4caf50;
     }
 
+    /* Created Activities specific styling */
+    .created-activity {
+      border-left: 4px solid #1976d2;
+    }
+
     .my-activity-badge {
       background-color: #e8f5e8;
       color: #4caf50;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .creator-badge {
+      background-color: #e3f2fd;
+      color: #1976d2;
       font-size: 11px;
       font-weight: 500;
     }
@@ -1647,10 +1865,13 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
   activities: Activity[] = [];
   filteredActivities: Activity[] = [];
   myActivities: Activity[] = []; // Activities assigned to current user
+  createdActivities: Activity[] = []; // Activities created by current user
   selectedStatus = '';
   mySelectedStatus = ''; // Status filter for my activities
+  createdSelectedStatus = ''; // Status filter for created activities
   statusFilter = 'all'; // Status filter for all activities
   myActivitiesStatusFilter = 'all'; // Status filter for my activities
+  createdActivitiesStatusFilter = 'all'; // Status filter for created activities
   isAdmin$: Observable<boolean>;
   canCreateActivity$: Observable<boolean>;
   currentUser: User | null = null;
@@ -1719,8 +1940,10 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
     this.activities = [];
     this.filteredActivities = [];
     this.myActivities = [];
+    this.createdActivities = [];
     this.selectedStatus = '';
     this.mySelectedStatus = '';
+    this.createdSelectedStatus = '';
     this.isLoading = false;
   }
 
@@ -1736,6 +1959,24 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
           this.isLoading = false;
           console.log('Team loaded successfully:', team);
           console.log('Team members structure:', team.members);
+          
+          // Enhanced member debugging
+          if (team.members && team.members.length > 0) {
+            console.log('=== MEMBER STRUCTURE ANALYSIS ===');
+            team.members.forEach((member, index) => {
+              console.log(`Member ${index}:`, {
+                id: member.id,
+                userId: member.userId,
+                empId: member.empId,
+                name: member.name,
+                hasUserId: !!member.userId,
+                hasId: !!member.id,
+                userIdType: typeof member.userId,
+                idType: typeof member.id
+              });
+            });
+            console.log('=== END MEMBER ANALYSIS ===');
+          }
         },
         error: (error) => {
           console.error('Error loading team details:', error);
@@ -1756,6 +1997,7 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
           this.activities = activities || [];
           this.filterActivities();
           this.filterMyActivities(); // Filter activities for current user
+          this.filterCreatedActivities(); // Filter activities created by current user
           console.log('Activities loaded successfully:', activities?.length || 0, 'activities');
           if (activities && activities.length > 0) {
             console.log('Sample activity structure:', activities[0]);
@@ -1766,6 +2008,7 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
           this.activities = [];
           this.filteredActivities = [];
           this.myActivities = [];
+          this.createdActivities = [];
           this.snackBar.open('Failed to load activities', 'Close', { duration: 3000 });
         }
       })
@@ -1825,6 +2068,76 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
     return userActivities.filter(activity => activity.status === status);
   }
 
+  // Helper methods for created activities
+  getCreatedPendingCount(): number {
+    return this.getCreatedActivitiesByStatus('all').filter(a => a.status === 'pending').length;
+  }
+
+  getCreatedCompletedCount(): number {
+    return this.getCreatedActivitiesByStatus('all').filter(a => a.status === 'completed').length;
+  }
+
+  getCreatedInProgressCount(): number {
+    return this.getCreatedActivitiesByStatus('all').filter(a => a.status === 'in-progress').length;
+  }
+
+  getCreatedOnHoldCount(): number {
+    return this.getCreatedActivitiesByStatus('all').filter(a => a.status === 'on-hold').length;
+  }
+
+  getCreatedActivitiesByStatus(status: string): Activity[] {
+    if (!this.currentUser) return [];
+    
+    console.log('=== CREATED ACTIVITIES DEBUG ===');
+    console.log('Current user ID:', this.currentUser.id, 'type:', typeof this.currentUser.id);
+    console.log('Total activities:', this.activities.length);
+    console.log('Activities createdBy values:', this.activities.map(a => ({ 
+      id: a.id, 
+      name: a.name, 
+      createdBy: a.createdBy, 
+      createdByType: typeof a.createdBy,
+      match: a.createdBy === this.currentUser!.id 
+    })));
+    
+    const createdActivities = this.activities.filter(activity => 
+      activity.createdBy === this.currentUser!.id
+    );
+
+    console.log('Filtered created activities:', createdActivities.length);
+    console.log('Status filter:', status);
+    console.log('=== END CREATED ACTIVITIES DEBUG ===');
+
+    // Handle both empty string and 'all' as "show all activities"
+    if (status === 'all' || status === '') return createdActivities;
+    return createdActivities.filter(activity => activity.status === status);
+  }
+
+  setCreatedStatusFilter(status: string) {
+    this.createdSelectedStatus = status;
+    this.filterCreatedActivities();
+  }
+
+  filterCreatedActivities() {
+    console.log('=== FILTERING CREATED ACTIVITIES ===');
+    console.log('createdSelectedStatus:', this.createdSelectedStatus);
+    console.log('Current createdActivities.length before filter:', this.createdActivities.length);
+    
+    this.createdActivities = this.getCreatedActivitiesByStatus(this.createdSelectedStatus);
+    
+    console.log('Current createdActivities.length after filter:', this.createdActivities.length);
+    console.log('=== END FILTERING CREATED ACTIVITIES ===');
+  }
+
+  getPriorityLabel(priority?: string): string {
+    const priorityMap: { [key: string]: string } = {
+      'low': 'Low',
+      'medium': 'Medium',
+      'high': 'High',
+      'urgent': 'Urgent'
+    };
+    return priorityMap[priority || 'medium'] || 'Medium';
+  }
+
   getPendingStatus(): string {
     const pending = this.getPendingCount();
     if (pending === 0) return 'All caught up!';
@@ -1874,7 +2187,7 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
     return `Due in ${diffDays} days`;
   }
 
-  getMemberCompletionRate(userId: string): number {
+  getMemberCompletionRate(userId: string | number): number {
     const assigned = this.getMemberActivityCount(userId);
     const completed = this.getMemberCompletedCount(userId);
     if (assigned === 0) return 0;
@@ -2080,36 +2393,105 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
     return `${memberNames.slice(0, 2).join(', ')} +${memberNames.length - 2} more`;
   }
 
-  getMemberActivityCount(userId: string): number {
-    return this.activities.filter(a => {
+  getMemberActivityCount(userId: string | number): number {
+    console.log('=== getMemberActivityCount Debug ===');
+    console.log('Input userId:', userId, 'type:', typeof userId);
+    console.log('Activities array length:', this.activities?.length || 0);
+    
+    if (!this.activities || !userId) {
+      console.log('Early return: no activities or no userId');
+      return 0;
+    }
+
+    // Convert userId to string for consistent comparison
+    const userIdStr = String(userId);
+    console.log('Converted userId to string:', userIdStr);
+
+    // Sample the first few activities to see data structure
+    console.log('Sample activities assignedMembers:');
+    this.activities.slice(0, 3).forEach((activity, index) => {
+      console.log(`Activity ${index}:`, {
+        id: activity.id,
+        name: activity.name,
+        assignedMembers: activity.assignedMembers,
+        assignedMembersType: typeof activity.assignedMembers,
+        isArray: Array.isArray(activity.assignedMembers)
+      });
+    });
+
+    const count = this.activities.filter(a => {
       // Handle assignedMembers which might come as array or comma-separated string from DB
       let assignedIds: string[] = [];
       if (Array.isArray(a.assignedMembers)) {
-        assignedIds = a.assignedMembers.map(m => m.id);
+        assignedIds = a.assignedMembers.map(m => String(m.id));
       } else if (a.assignedMembers && typeof a.assignedMembers === 'string') {
         assignedIds = (a.assignedMembers as any).split(',').map((id: string) => id.trim());
       } else if (a.assignedMembers) {
         // Handle other possible formats
         assignedIds = String(a.assignedMembers).split(',').map((id: string) => id.trim());
       }
-      return assignedIds.includes(userId);
+      
+      const found = assignedIds.includes(userIdStr);
+      if (found) {
+        console.log('Match found in activity:', { 
+          activityName: a.name, 
+          assignedIds, 
+          searchingFor: userIdStr 
+        });
+      }
+      
+      return found;
     }).length;
+
+    console.log('Final count for userId', userId, ':', count);
+    console.log('=== End getMemberActivityCount Debug ===');
+    return count;
   }
 
-  getMemberCompletedCount(userId: string): number {
-    return this.activities.filter(a => {
+  getMemberCompletedCount(userId: string | number): number {
+    console.log('=== getMemberCompletedCount Debug ===');
+    console.log('Input userId:', userId, 'type:', typeof userId);
+    
+    if (!this.activities || !userId) {
+      console.log('Early return: no activities or no userId');
+      return 0;
+    }
+
+    // Convert userId to string for consistent comparison
+    const userIdStr = String(userId);
+    console.log('Converted userId to string:', userIdStr);
+
+    const count = this.activities.filter(a => {
       // Handle assignedMembers which might come as array or comma-separated string from DB
       let assignedIds: string[] = [];
       if (Array.isArray(a.assignedMembers)) {
-        assignedIds = a.assignedMembers.map(m => m.id);
+        assignedIds = a.assignedMembers.map(m => String(m.id));
       } else if (a.assignedMembers && typeof a.assignedMembers === 'string') {
         assignedIds = (a.assignedMembers as any).split(',').map((id: string) => id.trim());
       } else if (a.assignedMembers) {
         // Handle other possible formats
         assignedIds = String(a.assignedMembers).split(',').map((id: string) => id.trim());
       }
-      return assignedIds.includes(userId) && a.status === 'completed';
+      
+      const isAssigned = assignedIds.includes(userIdStr);
+      const isCompleted = a.status === 'completed';
+      const result = isAssigned && isCompleted;
+      
+      if (result) {
+        console.log('Completed match found:', { 
+          activityName: a.name, 
+          status: a.status,
+          assignedIds, 
+          searchingFor: userIdStr 
+        });
+      }
+      
+      return result;
     }).length;
+
+    console.log('Final completed count for userId', userId, ':', count);
+    console.log('=== End getMemberCompletedCount Debug ===');
+    return count;
   }
 
   canUpdateActivity(activity: Activity): Observable<boolean> {
@@ -2281,7 +2663,21 @@ export class TeamDetailsComponent implements OnInit, OnDestroy {
   openAddMembersDialog() {
     if (!this.team) return;
 
-    const currentMemberIds = this.team.members?.map(m => m.userId || m.id) || [];
+    console.log('=== OPENING ADD MEMBERS DIALOG DEBUG ===');
+    console.log('Team object:', this.team);
+    console.log('Team members array:', this.team.members);
+    
+    const currentMemberIds = this.team.members?.map(m => {
+      console.log('Processing member:', m);
+      console.log('Member has userId?', 'userId' in m);
+      console.log('Member has id?', 'id' in m);
+      const memberId = m.userId || m.id;
+      console.log('Extracted member ID:', memberId, 'type:', typeof memberId);
+      return String(memberId); // Ensure consistent string type
+    }) || [];
+    
+    console.log('Final currentMemberIds being passed to dialog:', currentMemberIds);
+    console.log('=== END OPENING DIALOG DEBUG ===');
     
     const dialogRef = this.dialog.open(AddMembersDialogComponent, {
       width: '600px', // Increased width for better UX

@@ -65,11 +65,11 @@ import { map, startWith } from 'rxjs/operators';
           </mat-form-field>
 
           <!-- DEBUG: Manual test button -->
-          <button mat-raised-button color="warn" (click)="debugAddFirstUser()" 
+          <!-- <button mat-raised-button color="warn" (click)="debugAddFirstUser()" 
                   *ngIf="availableUsers.length > 0" 
                   style="margin-bottom: 16px;">
-            DEBUG: Add First Available User
-          </button>
+            DEBUG: Add First Available User ({{ getAvailableToAddCount() }} available)
+          </button> -->
 
           <!-- Show selected members -->
           <div class="selected-members" *ngIf="selectedUsersList.length > 0">
@@ -237,7 +237,14 @@ export class AddMembersDialogComponent implements OnInit {
     
     // Store original current members to prevent accidental modification
     this.originalCurrentMembers = [...this.data.currentMembers];
+    console.log("=== CONSTRUCTOR DEBUG ===");
+    console.log("(Constructor) data.currentMembers received: ", this.data.currentMembers);
+    console.log("(Constructor) data.currentMembers type: ", typeof this.data.currentMembers);
+    console.log("(Constructor) data.currentMembers length: ", this.data.currentMembers?.length);
     console.log("(Constructor) Original members stored: ", this.originalCurrentMembers);
+    console.log("(Constructor) Team ID: ", this.data.teamId);
+    console.log("(Constructor) Team Name: ", this.data.teamName);
+    console.log("=== END CONSTRUCTOR DEBUG ===");
 
     // Initialize filtered users for autocomplete
     this.filteredUsers = this.memberSearchControl.valueChanges.pipe(
@@ -254,26 +261,38 @@ export class AddMembersDialogComponent implements OnInit {
   setupFormSubscriptions() {
     console.log('Setting up form subscriptions');
     this.addMembersForm.get('selectedUsers')?.valueChanges.subscribe(selectedIds => {
-      console.log('=== FORM VALUE CHANGE ===');
-      console.log('New selectedIds:', selectedIds);
+      console.log('=== FORM VALUE CHANGE SUBSCRIPTION ===');
+      console.log('Raw selectedIds from form:', selectedIds);
+      console.log('selectedIds type and values:', selectedIds?.map((id: any) => typeof id + ': ' + id));
       console.log('availableUsers.length:', this.availableUsers.length);
       
       if (this.availableUsers.length > 0) {
+        console.log('Available users for filtering:', this.availableUsers.map(u => u.id + ' (' + u.name + ')'));
         const filteredUsers = this.availableUsers.filter(user => 
-          selectedIds.includes(user.id)
+          selectedIds && selectedIds.includes(user.id)
         );
-        console.log('Filtered users:', filteredUsers.map(u => u.name));
+        console.log('Filtered users based on selectedIds:', filteredUsers.map(u => u.id + ' (' + u.name + ')'));
+        
+        // Check each selected ID against available users
+        selectedIds?.forEach((id: any) => {
+          const foundUser = this.availableUsers.find(u => u.id === id);
+          console.log(`ID ${id} (${typeof id}) found in availableUsers: ${foundUser ? foundUser.name : 'NOT FOUND'}`);
+        });
+        
         this.selectedUsersList = filteredUsers;
-        console.log('Updated selectedUsersList length:', this.selectedUsersList.length);
+        console.log('Updated selectedUsersList:', this.selectedUsersList.map(u => u.id + ' (' + u.name + ')'));
+        console.log('Final selectedUsersList length:', this.selectedUsersList.length);
       } else {
-        console.log('availableUsers not loaded yet');
+        console.log('availableUsers not loaded yet, skipping filter');
       }
-      console.log('=== END FORM VALUE CHANGE ===');
+      console.log('=== END FORM VALUE CHANGE SUBSCRIPTION ===');
     });
   }
 
   async loadAvailableUsers() {
-    console.log('Loading available users...');
+    console.log('=== LOAD AVAILABLE USERS START ===');
+    console.log('originalCurrentMembers at start of loadAvailableUsers:', this.originalCurrentMembers);
+    
     try {
       const allUsers = await this.userService.getAllUsers().toPromise();
       console.log('Raw users loaded:', allUsers?.length);
@@ -285,9 +304,13 @@ export class AddMembersDialogComponent implements OnInit {
       
       // Pre-select existing team members
       console.log('Original members to pre-select:', this.originalCurrentMembers);
+      console.log('originalCurrentMembers before patchValue:', this.originalCurrentMembers);
+      
       this.addMembersForm.patchValue({
-        selectedUsers: this.originalCurrentMembers
+        selectedUsers: [...this.originalCurrentMembers] // Use spread to avoid reference issues
       });
+      
+      console.log('originalCurrentMembers after patchValue:', this.originalCurrentMembers);
       
       // Manually trigger the form subscription to update selectedUsersList
       const currentSelected = this.addMembersForm.get('selectedUsers')?.value || [];
@@ -297,10 +320,14 @@ export class AddMembersDialogComponent implements OnInit {
         currentSelected.includes(user.id)
       );
       console.log('Initial selectedUsersList:', this.selectedUsersList.map(u => u.name));
+      console.log('originalCurrentMembers at end of loadAvailableUsers:', this.originalCurrentMembers);
+      
     } catch (error) {
       console.error('Error loading users:', error);
       this.snackBar.open('Error loading available users', 'Close', { duration: 3000 });
     }
+    
+    console.log('=== LOAD AVAILABLE USERS END ===');
   }
 
   removeSelectedUser(userId: string) {
@@ -353,30 +380,52 @@ export class AddMembersDialogComponent implements OnInit {
     console.log('=== DEBUGGING onMemberSelected ===');
     console.log('Selected user:', selectedUser);
     
-    // Get current selected user IDs
-    const currentSelected = this.addMembersForm.get('selectedUsers')?.value || [];
+    // Get current selected user IDs - CREATE A COPY to avoid mutating original
+    const currentSelected = [...(this.addMembersForm.get('selectedUsers')?.value || [])];
     console.log('Current form value before update:', currentSelected);
-    console.log('Current selectedUsersList before update:', this.selectedUsersList);
+    console.log('Current form value types:', currentSelected.map((id: any) => typeof id + ': ' + id));
+    console.log('Current selectedUsersList before update:', this.selectedUsersList.map(u => u.id + ' (' + u.name + ')'));
+    console.log('originalCurrentMembers before modification:', this.originalCurrentMembers);
     
     // Add to selected if not already selected
     if (!currentSelected.includes(selectedUser.id)) {
       currentSelected.push(selectedUser.id);
       console.log('Updating form with:', currentSelected);
+      console.log('New form value types:', currentSelected.map((id: any) => typeof id + ': ' + id));
+      
       this.addMembersForm.patchValue({ selectedUsers: currentSelected });
       
-      // Give time for subscription to trigger
+      // Verify originalCurrentMembers wasn't affected
+      console.log('originalCurrentMembers after form update:', this.originalCurrentMembers);
+      
+      // Immediately check form value after patch
+      console.log('Form value immediately after patch:', this.addMembersForm.get('selectedUsers')?.value);
+      
+      // Give time for subscription to trigger and check again
       setTimeout(() => {
-        console.log('Form value after update:', this.addMembersForm.get('selectedUsers')?.value);
-        console.log('selectedUsersList after update:', this.selectedUsersList);
+        console.log('=== POST-UPDATE CHECK ===');
+        console.log('Form value after timeout:', this.addMembersForm.get('selectedUsers')?.value);
+        console.log('selectedUsersList after timeout:', this.selectedUsersList.map(u => u.id + ' (' + u.name + ')'));
         console.log('availableUsers count:', this.availableUsers.length);
-      }, 100);
+        
+        // Manual validation
+        const formValue = this.addMembersForm.get('selectedUsers')?.value || [];
+        const expectedUser = this.availableUsers.find(u => u.id === selectedUser.id);
+        if (expectedUser) {
+          const isInSelectedList = this.selectedUsersList.some(u => u.id === selectedUser.id);
+          console.log(`User ${selectedUser.name} (${selectedUser.id}) should be in selectedUsersList: ${isInSelectedList}`);
+        } else {
+          console.log('WARNING: Selected user not found in availableUsers!');
+        }
+        console.log('=== END POST-UPDATE CHECK ===');
+      }, 200);
     } else {
       console.log('User already selected, skipping');
     }
     
     // Clear the search input
     this.memberSearchControl.setValue('');
-    console.log('=== END DEBUG ===');
+    console.log('=== END onMemberSelected DEBUG ===');
   }
 
   isCurrentMember(userId: string): boolean {
@@ -384,19 +433,28 @@ export class AddMembersDialogComponent implements OnInit {
     return this.originalCurrentMembers.includes(String(userId));
   }
 
+  getAvailableToAddCount(): number {
+    const currentSelected = this.addMembersForm.get('selectedUsers')?.value || [];
+    return this.availableUsers.filter(user => !currentSelected.includes(user.id)).length;
+  }
+
   // DEBUG METHOD
   debugAddFirstUser() {
     console.log('=== DEBUG ADD FIRST USER ===');
+    console.log('originalCurrentMembers before debug add:', this.originalCurrentMembers);
+    
     const firstAvailableUser = this.availableUsers.find(user => 
       !this.addMembersForm.get('selectedUsers')?.value?.includes(user.id)
     );
     
     if (firstAvailableUser) {
       console.log('Adding user:', firstAvailableUser);
-      const currentSelected = this.addMembersForm.get('selectedUsers')?.value || [];
+      // CREATE A COPY to avoid mutating the original array
+      const currentSelected = [...(this.addMembersForm.get('selectedUsers')?.value || [])];
       currentSelected.push(firstAvailableUser.id);
       this.addMembersForm.patchValue({ selectedUsers: currentSelected });
       console.log('Updated form value:', this.addMembersForm.get('selectedUsers')?.value);
+      console.log('originalCurrentMembers after debug add:', this.originalCurrentMembers);
     } else {
       console.log('No available users to add');
     }
@@ -405,6 +463,7 @@ export class AddMembersDialogComponent implements OnInit {
   async onUpdateMembers() {
     console.log('=== UPDATE MEMBERS DEBUG ===');
     console.log('Form valid:', this.addMembersForm.valid);
+    console.log('Form value:', this.addMembersForm.value);
     
     if (this.addMembersForm.valid) {
       this.isLoading = true;
@@ -414,33 +473,57 @@ export class AddMembersDialogComponent implements OnInit {
         const selectedUserIds: string[] = (this.addMembersForm.get('selectedUsers')?.value || []).map((id: any) => String(id));
         const currentMemberIds: string[] = this.originalCurrentMembers.map((id: any) => String(id));
         
-        console.log("The selected users are: ", selectedUserIds);
+        console.log("=== DETAILED DEBUG INFO ===");
+        console.log("Raw form value:", this.addMembersForm.get('selectedUsers')?.value);
+        console.log("Selected users (mapped to strings):", selectedUserIds);
         console.log("Selected users types:", selectedUserIds.map(id => typeof id + ': ' + id));
-        console.log("The original current members are: ", currentMemberIds);
+        console.log("Original current members:", this.originalCurrentMembers);
+        console.log("Current members (mapped to strings):", currentMemberIds);
         console.log("Original current members types:", currentMemberIds.map(id => typeof id + ': ' + id));
+        console.log("Selected users list from UI:", this.selectedUsersList.map(u => u.id + ' (' + u.name + ')'));
+        
+        // Additional validation
+        if (selectedUserIds.length === 0) {
+          console.log("WARNING: No users selected in form!");
+        }
+        
+        if (currentMemberIds.length === 0) {
+          console.log("INFO: No original current members (new team or team with no members)");
+        }
         
         // Find users to add (selected but not currently members)
         const usersToAdd = selectedUserIds.filter(id => !currentMemberIds.includes(id));
-        console.log("The users to add are: ", usersToAdd);
+        console.log("Users to add:", usersToAdd);
         console.log("Add comparison details:");
         selectedUserIds.forEach(selectedId => {
           const isInCurrent = currentMemberIds.includes(selectedId);
           console.log(`  ${selectedId} (${typeof selectedId}) in originalCurrentMembers: ${isInCurrent}`);
+          if (isInCurrent) {
+            console.log(`    Found match in currentMemberIds at index: ${currentMemberIds.indexOf(selectedId)}`);
+          }
         });
 
         // Find users to remove (currently members but not selected)
         const usersToRemove = currentMemberIds.filter(id => !selectedUserIds.includes(id));
-        console.log("The users to remove are: ", usersToRemove);
+        console.log("Users to remove:", usersToRemove);
         console.log("Remove comparison details:");
         currentMemberIds.forEach(currentId => {
           const isInSelected = selectedUserIds.includes(currentId);
           console.log(`  ${currentId} (${typeof currentId}) in selectedUserIds: ${isInSelected}`);
+          if (isInSelected) {
+            console.log(`    Found match in selectedUserIds at index: ${selectedUserIds.indexOf(currentId)}`);
+          }
         });
+        
+        // Debug: Show what will happen
+        console.log(`Will add ${usersToAdd.length} users:`, usersToAdd);
+        console.log(`Will remove ${usersToRemove.length} users:`, usersToRemove);
         
         // Add new members
         if (usersToAdd.length > 0) {
           console.log('Adding members:', usersToAdd);
           await this.teamService.addMembers(this.data.teamId, usersToAdd).toPromise();
+          console.log('Successfully added members');
         }
         
         // Remove members who were unselected
@@ -448,6 +531,7 @@ export class AddMembersDialogComponent implements OnInit {
           console.log('Removing members:', usersToRemove);
           for (const userId of usersToRemove) {
             await this.teamService.removeMemberFromTeam(this.data.teamId, userId).toPromise();
+            console.log(`Successfully removed member: ${userId}`);
           }
         }
         
@@ -460,17 +544,21 @@ export class AddMembersDialogComponent implements OnInit {
           message = `Removed ${usersToRemove.length} member(s) from the team`;
         } else {
           message = 'No changes made to team members';
+          console.log('WARNING: No changes detected! This might indicate a bug.');
+          console.log('Final comparison: selectedUserIds:', selectedUserIds, 'vs currentMemberIds:', currentMemberIds);
         }
         
         console.log('Final message:', message);
         this.snackBar.open(message, 'Close', { duration: 3000 });
-        this.dialogRef.close(true);
+        this.dialogRef.close(usersToAdd.length > 0 || usersToRemove.length > 0); // Return true if changes were made
       } catch (error) {
         console.error('Error updating team members:', error);
         this.snackBar.open('Error updating team members', 'Close', { duration: 3000 });
       } finally {
         this.isLoading = false;
       }
+    } else {
+      console.log('Form is invalid:', this.addMembersForm.errors);
     }
     console.log('=== END UPDATE MEMBERS DEBUG ===');
   }

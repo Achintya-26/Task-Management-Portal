@@ -20,6 +20,7 @@ import { MatStepperModule } from '@angular/material/stepper';
 import { MatCardModule } from '@angular/material/card';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivityService } from '../../../services/activity.service';
 import { AuthService } from '../../../services/auth.service';
@@ -52,7 +53,8 @@ import { map, startWith } from 'rxjs/operators';
     MatStepperModule,
     MatCardModule,
     MatBadgeModule,
-    MatSlideToggleModule
+    MatSlideToggleModule,
+    MatCheckboxModule
   ],
   providers: [
     { provide: MAT_DATE_LOCALE, useValue: 'en-US' }
@@ -160,6 +162,26 @@ import { map, startWith } from 'rxjs/operators';
                     <mat-icon matChipRemove>cancel</mat-icon>
                   </mat-chip>
                 </mat-chip-set>
+              </div>
+
+              <!-- Creator Assignment Options -->
+              <div class="creator-options-section">
+                <h4>Creator Assignment</h4>
+                <mat-checkbox 
+                  [checked]="includeCreatorInAssignment"
+                  (change)="onIncludeCreatorChange($event.checked)"
+                  color="primary">
+                  Include me in the assigned members
+                </mat-checkbox>
+                
+                <mat-checkbox 
+                  *ngIf="!includeCreatorInAssignment"
+                  [checked]="subscribeToNotifications"
+                  (change)="onSubscribeToNotificationsChange($event.checked)"
+                  color="primary"
+                  class="notification-checkbox">
+                  Subscribe to activity notifications
+                </mat-checkbox>
               </div>
 
               <div class="step-actions">
@@ -424,6 +446,32 @@ import { map, startWith } from 'rxjs/operators';
       color: #333;
     }
 
+    /* Creator Options Section */
+    .creator-options-section {
+      margin-top: 24px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #e9ecef;
+    }
+
+    .creator-options-section h4 {
+      margin: 0 0 16px 0;
+      font-size: 16px;
+      font-weight: 500;
+      color: #333;
+    }
+
+    .creator-options-section mat-checkbox {
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    .notification-checkbox {
+      margin-left: 16px;
+      margin-top: 8px;
+    }
+
     .member-option {
       display: flex;
       align-items: center;
@@ -562,6 +610,10 @@ export class CreateActivityDialogComponent implements OnInit {
   isLoading = false;
   isEditMode = false;
   urlPattern = '^https?:\\/\\/.+';
+  
+  // Creator assignment properties
+  includeCreatorInAssignment = true;
+  subscribeToNotifications = false;
 
   constructor(
     private fb: FormBuilder,
@@ -619,6 +671,11 @@ export class CreateActivityDialogComponent implements OnInit {
 
   ngOnInit() {
     this.setupFormSubscriptions();
+    
+    // Initialize creator in selected members if not in edit mode
+    if (!this.isEditMode && this.includeCreatorInAssignment) {
+      this.initializeCreatorSelection();
+    }
   }
 
   setupFormSync() {
@@ -635,13 +692,58 @@ export class CreateActivityDialogComponent implements OnInit {
   setupFormSubscriptions() {
     // Watch for assigned users changes to update selected members display
     this.assignmentForm.get('assignedUsers')?.valueChanges.subscribe(userIds => {
-      this.selectedMembers = this.teamMembers.filter(member => 
-        userIds.includes(member.id)
-      );
+      console.log('=== FORM SUBSCRIPTION DEBUG ===');
+      console.log('Form assignedUsers changed to:', userIds);
+      console.log('Current selectedMembers before update:', this.selectedMembers.map(m => m.name));
+      console.log('Available teamMembers:', this.teamMembers.map(m => m.name));
+      
+      // Update selectedMembers based on the form, but handle both team members and current user
+      const currentUser = this.authService.getCurrentUser();
+      let updatedSelectedMembers: User[] = [];
+      
+      for (const userId of userIds) {
+        // First try to find in teamMembers
+        let user = this.teamMembers.find(member => member.id === userId);
+        
+        // If not found and it's the current user, add them
+        if (!user && currentUser && currentUser.id === userId) {
+          user = currentUser;
+          console.log('Adding current user to selectedMembers:', user.name);
+        }
+        
+        // If still not found, try to find in existing selectedMembers (for edit mode)
+        if (!user) {
+          user = this.selectedMembers.find(member => member.id === userId);
+          console.log('Found user in existing selectedMembers:', user?.name);
+        }
+        
+        if (user) {
+          updatedSelectedMembers.push(user);
+        } else {
+          console.log('WARNING: User with ID', userId, 'not found in any source');
+        }
+      }
+      
+      this.selectedMembers = updatedSelectedMembers;
+      console.log('Updated selectedMembers:', this.selectedMembers.map(m => m.name));
+      console.log('=== END FORM SUBSCRIPTION DEBUG ===');
     });
   }
 
+  initializeCreatorSelection() {
+    const currentUser = this.authService.getCurrentUser();
+    if (currentUser) {
+      // Add creator to selected members by default
+      this.selectedMembers = [currentUser];
+      this.assignmentForm.patchValue({ 
+        assignedUsers: [currentUser.id] 
+      });
+    }
+  }
+
   populateFormForEdit(activity: Activity) {
+    const currentUser = this.authService.getCurrentUser();
+    
     const formData = {
       name: activity.name,
       description: activity.description || '',
@@ -653,6 +755,26 @@ export class CreateActivityDialogComponent implements OnInit {
     this.activityForm.patchValue(formData);
     this.basicInfoForm.patchValue(formData);
     this.assignmentForm.patchValue({ assignedUsers: formData.assignedUsers });
+
+    // Populate selectedMembers array with existing assigned members
+    // Convert assignedMembers to User format (add missing role property)
+    this.selectedMembers = (activity.assignedMembers || []).map(member => ({
+      ...member,
+      role: 'user' as const // Default to 'user' role for assigned members
+    }));
+    console.log('Edit mode - selectedMembers populated with:', this.selectedMembers.map(m => m.name));
+
+    // Initialize creator assignment checkbox based on current assignment state
+    if (currentUser) {
+      const currentUserId = String(currentUser.id);
+      this.includeCreatorInAssignment = formData.assignedUsers.some((id: any) => String(id) === currentUserId);
+      console.log('Edit mode - Current user in assigned members:', this.includeCreatorInAssignment);
+      console.log('Assigned users:', formData.assignedUsers);
+      console.log('Current user ID:', currentUserId);
+    }
+
+    // Initialize subscription checkbox based on activity's creatorSubscribed field (if available)
+    this.subscribeToNotifications = (activity as any).creatorSubscribed !== undefined ? (activity as any).creatorSubscribed : false;
 
     // Set existing attachments and links
     this.existingAttachments = activity.attachments || [];
@@ -714,6 +836,66 @@ export class CreateActivityDialogComponent implements OnInit {
     
     // Clear the search input
     this.memberSearchControl.setValue('');
+  }
+
+  // Creator assignment methods
+  onIncludeCreatorChange(checked: boolean) {
+    console.log('=== CHECKBOX CHANGE DEBUG ===');
+    console.log('onIncludeCreatorChange called with checked:', checked);
+    console.log('Previous includeCreatorInAssignment value:', this.includeCreatorInAssignment);
+    
+    this.includeCreatorInAssignment = checked;
+    console.log('New includeCreatorInAssignment value:', this.includeCreatorInAssignment);
+    
+    const currentUser = this.authService.getCurrentUser();
+    if (!currentUser) {
+      console.log('No current user found');
+      return;
+    }
+    
+    if (!checked) {
+      console.log('Checkbox UNCHECKED - removing creator from selected members');
+      // Remove creator from selected members if unchecked
+      const beforeCount = this.selectedMembers.length;
+      const beforeForm = this.assignmentForm.get('assignedUsers')?.value || [];
+      console.log('Before removal - selectedMembers count:', beforeCount);
+      console.log('Before removal - form value:', beforeForm);
+      
+      this.removeAssignedMember(currentUser.id);
+      
+      const afterCount = this.selectedMembers.length;
+      const afterForm = this.assignmentForm.get('assignedUsers')?.value || [];
+      console.log('After removal - selectedMembers count:', afterCount);
+      console.log('After removal - form value:', afterForm);
+    } else {
+      console.log('Checkbox CHECKED - adding creator to selected members');
+      // Add creator to selected members if checked
+      const isAlreadySelected = this.selectedMembers.find(member => member.id === currentUser.id);
+      console.log('Creator already in selectedMembers:', !!isAlreadySelected);
+      
+      if (currentUser && !isAlreadySelected) {
+        const beforeCount = this.selectedMembers.length;
+        const beforeForm = this.assignmentForm.get('assignedUsers')?.value || [];
+        console.log('Before addition - selectedMembers count:', beforeCount);
+        console.log('Before addition - form value:', beforeForm);
+        
+        this.selectedMembers.push(currentUser);
+        const currentSelected = [...(this.assignmentForm.get('assignedUsers')?.value || [])];
+        currentSelected.push(currentUser.id);
+        this.assignmentForm.patchValue({ assignedUsers: currentSelected });
+        
+        const afterCount = this.selectedMembers.length;
+        const afterForm = this.assignmentForm.get('assignedUsers')?.value || [];
+        console.log('After addition - selectedMembers count:', afterCount);
+        console.log('After addition - form value:', afterForm);
+      }
+    }
+    
+    console.log('=== END CHECKBOX CHANGE DEBUG ===');
+  }
+
+  onSubscribeToNotificationsChange(checked: boolean) {
+    this.subscribeToNotifications = checked;
   }
 
   onDrop(event: DragEvent) {
@@ -862,15 +1044,49 @@ export class CreateActivityDialogComponent implements OnInit {
       formData.append('description', this.activityForm.get('description')?.value || '');
       formData.append('priority', this.activityForm.get('priority')?.value);
       formData.append('targetDate', this.activityForm.get('targetDate')?.value?.toISOString());
-      formData.append('teamId', this.data.teamId);
+      formData.append('team_id', this.data.teamId); // Backend expects team_id not teamId
       formData.append('createdBy', currentUser.id);
 
-      // Add assigned users (always include the current user)
+      // Add assigned users
       const assignedUserIds = this.activityForm.get('assignedUsers')?.value || [];
-      if (!assignedUserIds.includes(currentUser.id)) {
-        assignedUserIds.push(currentUser.id);
+      
+      console.log('=== FORM SUBMISSION DEBUG ===');
+      console.log('isEditMode:', this.isEditMode);
+      console.log('includeCreatorInAssignment checkbox state:', this.includeCreatorInAssignment);
+      console.log('Current user ID:', currentUser.id);
+      console.log('Original assignedUserIds from form:', assignedUserIds);
+      console.log('assignedUserIds includes current user:', assignedUserIds.includes(currentUser.id));
+      
+      // Handle creator assignment based on checkbox
+      if (this.includeCreatorInAssignment) {
+        console.log('Checkbox is CHECKED - ensuring creator is included');
+        // Ensure creator is included
+        if (!assignedUserIds.includes(currentUser.id)) {
+          console.log('Adding creator to assigned users');
+          assignedUserIds.push(currentUser.id);
+        } else {
+          console.log('Creator already in assigned users, no change needed');
+        }
+      } else {
+        console.log('Checkbox is UNCHECKED - ensuring creator is NOT included');
+        // Ensure creator is NOT included in assigned members
+        const creatorIndex = assignedUserIds.indexOf(currentUser.id);
+        if (creatorIndex > -1) {
+          console.log('Removing creator from assigned users at index:', creatorIndex);
+          assignedUserIds.splice(creatorIndex, 1);
+        } else {
+          console.log('Creator not in assigned users, no change needed');
+        }
       }
+      
+      console.log('Final assignedUserIds after processing:', assignedUserIds);
+      console.log('=== END FORM SUBMISSION DEBUG ===');
+      
       formData.append('assignedUsers', JSON.stringify(assignedUserIds));
+      
+      // Add subscription preference for notifications
+      console.log('Appending creatorSubscribed:', this.subscribeToNotifications);
+      formData.append('creatorSubscribed', this.subscribeToNotifications.toString());
 
       // Add selected files
       this.selectedFiles.forEach(file => {
